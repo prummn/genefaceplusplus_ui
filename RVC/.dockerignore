@@ -1,7 +1,0 @@
-# 忽略所有模型和权重文件夹
-./models_zh
-./io
-# 忽略Git和其他不必要的文件
-.git/
-.idea/
-.vscode/
