@@ -6,6 +6,7 @@
     <title>实时对话系统</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/chat_system.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/elaboration.css') }}">
 </head>
 
 <body class="subpage-bg">
@@ -13,6 +14,8 @@
     <button onclick="window.location.href='/'" aria-label="返回首页" title="返回首页" class="back-btn">
         ← 返回
     </button>
+
+    <button class="vg-help-button" id="vg_openHelpBtn" aria-haspopup="dialog" aria-controls="vg_helpModal">参数说明</button>
     
     <div class="page-container">
         <h2>实时对话系统</h2>
@@ -30,43 +33,53 @@
                     </div>
                     <div class="status-message" id="statusMessage">准备录音</div>
                 </div>
-                <!-- 左侧视频显示 -->
-                <video id="chatVideo" controls width="420">
-                    <!--<source src="{{ url_for('static', filename='videos/sample.mp4') }}" type="video/mp4">-->
+                <!-- 左侧视频/音频显示 -->
+                <video id="chatVideo" controls width="420" poster="{{ url_for('static', filename='images/audio_placeholder.png') }}">
                     <source src="{{ url_for('static', filename='audios/cloned_output.wav') }}" type="audio/wav">
+                    您的浏览器不支持音频播放。
                 </video>
             </div>
 
             <!-- 右侧参数区 -->
             <div class="form-section">
                 <form id="chatForm">
+                    <!-- 1. 数字人模型选择 (保留，用于后续视觉生成) -->
                     <div class="form-group">
-                        <label>模型名称</label>
+<<<<<<< HEAD
+                        <label>模型选择</label>
+=======
+                        <label>数字人模型</label>
+>>>>>>> eb9f9db (Revert "WIP: 保存 chat_system 修改")
                         <select name="model_name">
-                            <option value="model1">Model 1</option>
-                            <option value="model2">Model 2</option>
                             <option value="SyncTalk">SyncTalk</option>
+                            <option value="Wav2Lip">Wav2Lip</option>
+                            <option value="SadTalker">SadTalker</option>
                         </select>
                     </div>
 
+                    <!-- 2. 模型权重路径 (保留，用于指定特定数字人checkpoint) -->
                     <div class="form-group">
-                        <label>模型目录地址</label>
-                        <input type="text" name="model_param" placeholder="请输入模型目录路径">
+                        <label>模型权重路径</label>
+                        <input type="text" name="model_param" placeholder="请输入模型权重/配置路径" value="checkpoints/demo.pth">
                     </div>
 
+                    <!-- 3. 语音克隆/参考音色选择 (已修改为选择 RVC 参考音频) -->
                     <div class="form-group">
-                        <label>语音克隆模型名称</label>
-                        <select name="voice_clone">
-                            <option value="cloneA">Voice Clone A</option>
-                            <option value="cloneB">Voice Clone B</option>
+                        <label>参考音色</label>
+                        <select name="voice_clone" id="voice_clone_select">
+                            <!-- value 对应 RVC/io/input/ 下的文件名 -->
+                            <option value="zhb">zhb</option>
+                            <option value="nahida">nahida</option>
                         </select>
                     </div>
 
+                    <!-- 4. 大语言模型API选择 (已修改为选择 GLM 模型) -->
                     <div class="form-group">
-                        <label>对话API选择</label>
-                        <select name="api_choice">
-                            <option value="openai">OpenAI API</option>
-                            <option value="azure">Azure Speech API</option>
+                        <label>LLM 模型选择</label>
+                        <select name="api_choice" id="api_choice_select">
+                            <option value="glm-4-flash">GLM-4-Flash</option>
+                            <option value="glm-4">GLM-4</option>
+                            <option value="glm-3-turbo">GLM-3-Turbo</option>
                         </select>
                     </div>
 
@@ -76,12 +89,27 @@
         </div>
     </div>
 
+    <!-- 共用 modal（内容从 static/text/index.txt 加载） -->
+    <div class="vg-modal-backdrop" id="vg_helpModal" role="dialog" aria-modal="true" aria-labelledby="vg_helpTitle" tabindex="-1" hidden>
+        <div class="vg-modal-content" role="document">
+            <div class="vg-modal-header">
+                <h2 class="vg-modal-title" id="vg_helpTitle">参数说明</h2>
+                <button class="vg-modal-close" id="vg_closeHelpBtn" aria-label="关闭">✕</button>
+            </div>
+
+            <pre id="vg_helpBody" class="vg-modal-body" tabindex="0" data-src="{{ url_for('static', filename='text/chat_system.txt') }}"></pre>
+
+            <div class="vg-modal-actions" aria-hidden="false">
+                <button class="vg-btn vg-btn-primary" id="vg_playTutorialBtn" type="button"
+                        data-video="{{ url_for('static', filename='videos/tutorial.mp4') }}">
+                    播放教程视频
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='js/chat_system.js') }}"></script>
+    <!-- 共用帮助脚本 -->
+    <script src="{{ url_for('static', filename='js/elaboration.js') }}"></script>
 </body>
-
 </html>
-
-<!--
-Example audio file URL:
-http://127.0.0.1:5000/static/audios/input.wav
--->
