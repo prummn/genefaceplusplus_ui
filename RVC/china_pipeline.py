@@ -1,50 +1,72 @@
 import argparse
 import os
 import time
+import json
+import requests
 from zhipuai import ZhipuAI
 from pydub import AudioSegment 
 
-# --- 文件名常量 ---
+# --- 配置区域 ---
+ZHIPU_API_KEY = "c4f0ad328f1248b2a0840c78c7b54ab4.6VT7eLDZ9T7ZagY7"
+# 请确保这里填入了正确的 Gemini Key
+GEMINI_API_KEY = "AIzaSyCTZzayhFyh9N48KOj9W8Q0GqXi_jXrkbM"
+GEMINI_BASE_URL = "https://142790.xyz"  # 您的转发地址
+
+# --- 文件路径 ---
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LATEST_RESPONSE_FILE = "latest_ai_response.txt"
-LOG_FILE = "conversation_log.txt"
-LATEST_RESPONSE_FILE_PATH = os.path.join(os.path.dirname(__file__), LATEST_RESPONSE_FILE)
-LOG_FILE_PATH = os.path.join(os.path.dirname(__file__), LOG_FILE)
+LATEST_RESPONSE_FILE_PATH = os.path.join(BASE_DIR, LATEST_RESPONSE_FILE)
+HISTORY_FILE_PATH = os.path.join(BASE_DIR, "chat_history.json")
+LOG_FILE_PATH = os.path.join(BASE_DIR, "conversation_log.txt")
 
-# 1. 设置API Key
-api_key = "c4f0ad328f1248b2a0840c78c7b54ab4.6VT7eLDZ9T7ZagY7"
-
-# 2. 初始化 ZhipuAI 客户端
+# 初始化 ZhipuAI 客户端
 try:
-    client = ZhipuAI(api_key=api_key)
+    zhipu_client = ZhipuAI(api_key=ZHIPU_API_KEY)
 except Exception as e:
-    print(f"API Key 初始化失败: {e}")
-    exit()
+    print(f"Zhipu API Key 初始化失败: {e}")
+    zhipu_client = None
 
-# 3. 维护一个对话历史列表
-conversation_history = [
-    {"role": "system", "content": "你是一个乐于助人的对话助手，请用简洁明了的中文回答。"}
-]
+# --- 多轮对话管理 ---
+def load_history():
+    """从 JSON 文件加载历史记录"""
+    if os.path.exists(HISTORY_FILE_PATH):
+        try:
+            with open(HISTORY_FILE_PATH, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
 
-def convert_audio_if_needed(audio_file_path):
-    """
-    检查音频文件格式，如果不是 .mp3 或 .wav, 则转换为 .mp3
-    同时，强制将所有音频文件转换为“单声道”
-    """
-    file_name, file_extension = os.path.splitext(audio_file_path)
-    
-    if not os.path.exists(audio_file_path):
-        print(f"[Converter] 错误：输入文件 {audio_file_path} 未找到。")
-        return None
-
-    # 定义输出文件名 (统一转为 .mp3)
-    output_path = file_name + "_mono.mp3"
-    
+def save_history(history):
+    """保存历史记录到 JSON 文件"""
     try:
-        # 加载音频文件
+        if len(history) > 40: 
+            history = history[-40:]
+        with open(HISTORY_FILE_PATH, 'w', encoding='utf-8') as f:
+            json.dump(history, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[History] 保存失败: {e}")
+
+def append_to_log(user_text, assistant_reply, model_name):
+    """追加到纯文本日志文件"""
+    try:
+        user_text_val = user_text if user_text else "N/A (ASR失败)"
+        with open(LOG_FILE_PATH, 'a', encoding='utf-8') as f:
+            f.write(f"【{time.ctime()} | Model: {model_name}】\n")
+            f.write(f"你: {user_text_val}\n")
+            f.write(f"AI: {assistant_reply}\n\n")
+    except Exception as e:
+        print(f"[Log] 追加日志失败: {e}")
+
+# --- 音频处理 ---
+def convert_audio_if_needed(audio_file_path):
+    file_name, _ = os.path.splitext(audio_file_path)
+    if not os.path.exists(audio_file_path):
+        return None
+    output_path = file_name + "_mono.mp3"
+    try:
         audio = AudioSegment.from_file(audio_file_path)
-        # 强制设置为单声道
         audio = audio.set_channels(1)
-        # 导出为 .mp3
         audio.export(output_path, format="mp3")
         return output_path
     except Exception as e:
@@ -52,15 +74,12 @@ def convert_audio_if_needed(audio_file_path):
         return None
 
 def transcribe_audio_zhipu(audio_file_path):
-    """
-    步骤 A: 语音转文字 (ASR)
-    """
-    if not audio_file_path:
+    if not audio_file_path or not zhipu_client:
         return None
     print(f"[ASR] 正在识别 (Zhipu): {audio_file_path}...")
     try:
         with open(audio_file_path, "rb") as audio_file:
-            response = client.audio.transcriptions.create(
+            response = zhipu_client.audio.transcriptions.create(
                 model="glm-asr",
                 file=audio_file,
             )
@@ -70,68 +89,155 @@ def transcribe_audio_zhipu(audio_file_path):
         print(f"[ASR] 识别失败: {e}")
         return None
 
-def save_response_to_file(user_text, assistant_reply):
-    """保存AI回答到文件"""
-    try:
-        with open(LATEST_RESPONSE_FILE_PATH, 'w', encoding='utf-8') as f:
-            f.write(assistant_reply)
-    except Exception as e:
-        print(f"[Save] 保存最新回答失败: {e}")
+# --- LLM 调用逻辑 ---
 
+def get_llm_response_zhipu(user_text, model_name, history):
+    print(f"[LLM] 调用 Zhipu ({model_name})...")
+    messages = [{"role": "system", "content": "你是一个乐于助人的对话助手，请用简洁明了的中文回答。"}]
+    for item in history:
+        messages.append(item)
+    messages.append({"role": "user", "content": user_text})
+    
     try:
-        user_text_to_save = user_text if user_text else "N/A (ASR失败)"
-        with open(LOG_FILE_PATH, 'a', encoding='utf-8') as f:
-            f.write(f"【{time.ctime()}】\n")
-            f.write(f"你: {user_text_to_save}\n")
-            f.write(f"AI: {assistant_reply}\n\n")
-    except Exception as e:
-        print(f"[Save] 追加日志失败: {e}")
-
-def get_llm_response_zhipu(user_text, model_name="glm-4-flash"):
-    """
-    步骤 B: 获取大语言模型应答 (LLM)
-    """
-    if not user_text:
-        assistant_reply = "我没有听清，你能再说一遍吗？"
-        save_response_to_file(user_text, assistant_reply)
-        return assistant_reply
-        
-    print(f"[LLM] 正在思考 (Model: {model_name})...")
-    try:
-        conversation_history.append({"role": "user", "content": user_text})
-        
-        # 使用传入的模型参数
-        response = client.chat.completions.create(
+        response = zhipu_client.chat.completions.create(
             model=model_name,
-            messages=conversation_history,
+            messages=messages,
         )
-        
-        assistant_reply = response.choices[0].message.content
-        conversation_history.append({"role": "assistant", "content": assistant_reply})
-        print(f"[LLM] AI 回答: {assistant_reply}")
-
-        save_response_to_file(user_text, assistant_reply)
-        return assistant_reply
-        
+        reply = response.choices[0].message.content
+        return reply
     except Exception as e:
-        print(f"[LLM] 思考失败: {e}")
-        return "抱歉，我好像出错了。"
+        print(f"[Zhipu Error] {e}")
+        return f"智谱API调用出错: {e}"
+
+def get_llm_response_gemini(user_text, model_name, history):
+    print(f"[LLM] 调用 Gemini ({model_name})...")
+    
+    # 修正模型名称
+    api_model_name = model_name
+    
+    url = f"{GEMINI_BASE_URL}/v1beta/models/{api_model_name}:generateContent?key={GEMINI_API_KEY}"
+    
+    # 构造 Gemini 格式的内容
+    contents = []
+    for item in history:
+        role = "user" if item["role"] == "user" else "model"
+        contents.append({
+            "role": role,
+            "parts": [{"text": item["content"]}]
+        })
+    
+    contents.append({
+        "role": "user",
+        "parts": [{"text": user_text}]
+    })
+
+    payload = {
+        "contents": contents,
+        "generationConfig": {
+            "temperature": 0.7,
+            # 【修改】大幅增加 Token 上限，防止思考过程耗尽 Token
+            "maxOutputTokens": 8192, 
+        }
+    }
+    
+    headers = {"Content-Type": "application/json"}
+    
+    try:
+        print(f"[Gemini Debug] Request URL: {url}")
+        
+        response = requests.post(url, headers=headers, data=json.dumps(payload), timeout=60) # 增加超时时间
+        
+        print(f"[Gemini Debug] HTTP Status: {response.status_code}")
+        
+        if response.status_code == 200:
+            result = response.json()
+            # 打印原始返回结果
+            # print(f"[Gemini Debug] Raw Response: {json.dumps(result, ensure_ascii=True)}")
+            
+            try:
+                # 检查是否被拦截
+                if "promptFeedback" in result:
+                    # 检查 promptFeedback 是否包含 blockReason
+                    pf = result["promptFeedback"]
+                    if "blockReason" in pf:
+                        print(f"[Gemini Debug] PromptFeedback Blocked: {pf}")
+                        return f"Gemini 拒绝回答 (Prompt Blocked: {pf.get('blockReason')})"
+
+                if "candidates" not in result or not result["candidates"]:
+                    return "Gemini API 未返回结果 (可能被安全策略拦截)。"
+
+                candidate = result['candidates'][0]
+                
+                # 【修改】更健壮的字段解析
+                content = candidate.get("content", {})
+                parts = content.get("parts", [])
+                
+                if not parts:
+                    finish_reason = candidate.get("finishReason", "UNKNOWN")
+                    print(f"[Gemini Debug] Finish Reason: {finish_reason}")
+                    
+                    if finish_reason == "MAX_TOKENS":
+                        return "回答被截断 (Token上限不足)，请再次增加 maxOutputTokens。"
+                    elif finish_reason == "SAFETY":
+                        return "回答被安全策略拦截。"
+                    else:
+                        return f"Gemini 生成内容为空 (原因: {finish_reason})"
+
+                text = parts[0].get('text', '')
+                if not text:
+                     return "Gemini 返回了空的文本内容。"
+                     
+                return text
+                
+            except (KeyError, IndexError) as e:
+                print(f"[Gemini Error] 解析 JSON 失败: {e}")
+                # 打印出有问题的 candidate 以便调试
+                print(f"[Gemini Error Debug] Candidate data: {result.get('candidates', 'No candidates')}")
+                return "Gemini 返回格式异常 (解析失败)。"
+        else:
+            print(f"[Gemini Error] API 错误: {response.text}")
+            return f"Gemini API 错误: {response.status_code}"
+            
+    except Exception as e:
+        print(f"[Gemini Error] 连接异常: {e}")
+        return "无法连接到 Gemini API。"
+
+# --- 主逻辑 ---
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="ASR + LLM 管道")
+    parser = argparse.ArgumentParser(description="ASR + LLM 管道 (Gemini/Zhipu)")
     parser.add_argument("--input", "-i", required=True, help="输入的音频文件路径")
-    # 【新】添加 --model 参数
-    parser.add_argument("--model", "-m", default="glm-4-flash", help="LLM模型名称 (e.g., glm-4-flash, glm-4)")
+    parser.add_argument("--model", "-m", default="glm-4.5-flash", help="LLM模型名称")
     
     args = parser.parse_args()
-
-    my_audio_file = args.input 
-    llm_model_name = args.model
-
-    if os.path.exists(my_audio_file):
-        path_to_upload = convert_audio_if_needed(my_audio_file)
+    
+    audio_path = args.input
+    model_choice = args.model
+    
+    history = load_history()
+    
+    if os.path.exists(audio_path):
+        converted_path = convert_audio_if_needed(audio_path)
+        user_input_text = transcribe_audio_zhipu(converted_path)
         
-        user_input_text = transcribe_audio_zhipu(path_to_upload)
+        assistant_reply = ""
         
-        # 传递模型参数
-        ai_response_text = get_llm_response_zhipu(user_input_text, model_name=llm_model_name)
+        if user_input_text:
+            if "gemini" in model_choice.lower():
+                assistant_reply = get_llm_response_gemini(user_input_text, model_choice, history)
+            else:
+                assistant_reply = get_llm_response_zhipu(user_input_text, model_choice, history)
+        else:
+            assistant_reply = "抱歉，我没有听清您说什么。"
+
+        print(f"[Main] AI 回答: {assistant_reply}")
+        
+        with open(LATEST_RESPONSE_FILE_PATH, 'w', encoding='utf-8') as f:
+            f.write(assistant_reply)
+            
+        if user_input_text:
+            history.append({"role": "user", "content": user_input_text})
+            history.append({"role": "assistant", "content": assistant_reply})
+            save_history(history)
+            
+        append_to_log(user_input_text, assistant_reply, model_choice)

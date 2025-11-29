@@ -14,3 +14,8 @@ GPT-SoVITS/
 test_data/
 
 models_zh/
+
+temp_rvc_text.txt
+conversation_log.txt
+latest_ai_response.txt
+chat_history.json

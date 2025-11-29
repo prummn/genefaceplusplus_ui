@@ -3,7 +3,7 @@ from pydub import AudioSegment
 import os
 from backend.video_generator import generate_video
 from backend.model_trainer import train_model
-from backend.chat_engine import chat_response
+from backend.chat_engine import chat_response, clear_chat_history
 from werkzeug.utils import secure_filename
 from datetime import datetime
 
@@ -131,6 +131,13 @@ def save_audio():
     web_path = '/SyncTalk/audio/aud.wav'
     return jsonify({'status': 'success', 'message': '音频保存并修复成功', 'file_path': web_path})
 
+@app.route('/clear_history', methods=['POST'])
+def clear_history():
+    success, msg = clear_chat_history()
+    if success:
+        return jsonify({'status': 'success', 'message': msg})
+    else:
+        return jsonify({'status': 'error', 'message': msg})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', debug=True, port=5000)
