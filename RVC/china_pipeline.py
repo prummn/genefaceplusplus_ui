@@ -5,15 +5,29 @@ import json
 import requests
 from zhipuai import ZhipuAI
 from pydub import AudioSegment 
-
-# --- 配置区域 ---
-ZHIPU_API_KEY = "c4f0ad328f1248b2a0840c78c7b54ab4.6VT7eLDZ9T7ZagY7"
-# 请确保这里填入了正确的 Gemini Key
-GEMINI_API_KEY = "AIzaSyCTZzayhFyh9N48KOj9W8Q0GqXi_jXrkbM"
-GEMINI_BASE_URL = "https://142790.xyz"  # 您的转发地址
+# 【安全修改】引入 dotenv 以加载环境变量
+from dotenv import load_dotenv
 
 # --- 文件路径 ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# 【安全修改】加载 .env 文件
+# 脚本会尝试读取同目录下的 .env，或者项目根目录下的 .env
+load_dotenv(os.path.join(BASE_DIR, ".env")) 
+load_dotenv() 
+
+# --- 配置区域 ---
+# 【安全修改】不再硬编码，改为从环境变量获取
+ZHIPU_API_KEY = os.getenv("ZHIPU_API_KEY", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_BASE_URL = os.getenv("GEMINI_BASE_URL", "https://142790.xyz") # 提供默认值
+
+# 检查 Key 是否存在，给予提示
+if not ZHIPU_API_KEY:
+    print("[Config] 警告: 未找到 ZHIPU_API_KEY，请在 .env 文件中配置")
+if not GEMINI_API_KEY:
+    print("[Config] 警告: 未找到 GEMINI_API_KEY，请在 .env 文件中配置")
+
 LATEST_RESPONSE_FILE = "latest_ai_response.txt"
 LATEST_RESPONSE_FILE_PATH = os.path.join(BASE_DIR, LATEST_RESPONSE_FILE)
 HISTORY_FILE_PATH = os.path.join(BASE_DIR, "chat_history.json")
@@ -21,7 +35,11 @@ LOG_FILE_PATH = os.path.join(BASE_DIR, "conversation_log.txt")
 
 # 初始化 ZhipuAI 客户端
 try:
-    zhipu_client = ZhipuAI(api_key=ZHIPU_API_KEY)
+    if ZHIPU_API_KEY:
+        zhipu_client = ZhipuAI(api_key=ZHIPU_API_KEY)
+    else:
+        zhipu_client = None
+        print("[Config] Zhipu Client 未初始化 (缺少 Key)")
 except Exception as e:
     print(f"Zhipu API Key 初始化失败: {e}")
     zhipu_client = None
@@ -92,6 +110,9 @@ def transcribe_audio_zhipu(audio_file_path):
 # --- LLM 调用逻辑 ---
 
 def get_llm_response_zhipu(user_text, model_name, history):
+    if not zhipu_client:
+        return "错误: 智谱 API 未配置。"
+        
     print(f"[LLM] 调用 Zhipu ({model_name})...")
     messages = [{"role": "system", "content": "你是一个乐于助人的对话助手，请用简洁明了的中文回答。"}]
     for item in history:
@@ -110,6 +131,9 @@ def get_llm_response_zhipu(user_text, model_name, history):
         return f"智谱API调用出错: {e}"
 
 def get_llm_response_gemini(user_text, model_name, history):
+    if not GEMINI_API_KEY:
+        return "错误: Gemini API 未配置。"
+
     print(f"[LLM] 调用 Gemini ({model_name})...")
     
     # 修正模型名称
