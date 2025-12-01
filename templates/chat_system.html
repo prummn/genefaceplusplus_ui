@@ -3,160 +3,116 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>实时对话系统</title>
-    <!-- 引入 FontAwesome 图标库 (用于麦克风、清除等图标) -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/chat_system.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/instruction.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/elaboration.css') }}">
 </head>
 
 <body class="subpage-bg">
 
-    <!-- 顶部导航 -->
     <button onclick="window.location.href='/'" aria-label="返回首页" title="返回首页" class="back-btn">
-        <i class="fas fa-arrow-left"></i> 返回
+        ← 返回
     </button>
 
-    <button class="vg-help-button" id="vg_openHelpBtn" aria-haspopup="dialog" aria-controls="vg_helpModal">
-        <i class="fas fa-terminal"></i> 参数说明
-    </button>
-    
-    
+    <button class="vg-help-button" id="vg_openHelpBtn" aria-haspopup="dialog" aria-controls="vg_helpModal">参数说明</button>
     
     <div class="page-container">
         <h2>实时对话系统</h2>
-        
         <div class="video-page-container">
-            <!-- 左侧：语音交互区 (添加 tech-panel 类) -->
-            <div class="video-display tech-panel">
+            <div class="video-display">
                 <!-- 语音录制器 -->
                 <div class="voice-recorder">
-                    <!-- 装饰性标签 -->
-                    <div class="module-label">AUDIO INPUT MODULE</div>
-                    
                     <button id="recordButton" class="record-btn">
-                        <i class="fas fa-microphone-alt" style="font-size: 24px;"></i>
-                        <span style="margin-top: 5px;">点击录音</span>
+                        <span>●</span> 开始录音
                     </button>
-                    
                     <div class="timer" id="timer">00:00</div>
-                    
                     <div class="recording-indicator" id="recordingIndicator" style="display: none;">
                         <div class="recording-dot"></div>
-                        <span>正在采集音频数据...</span>
+                        <span>正在录音...</span>
                     </div>
-                    
-                    <div class="status-message" id="statusMessage">等待指令输入</div>
+                    <div class="status-message" id="statusMessage">准备录音</div>
                 </div>
-                
-                <!-- 视频/音频显示 -->
-                <!-- 确保 poster 图片路径正确，或者去掉 poster 属性 -->
-                <video id="chatVideo" controls poster="{{ url_for('static', filename='images/audio_placeholder.png') }}">
+                <!-- 左侧视频/音频显示 -->
+                <video id="chatVideo" controls width="420" poster="{{ url_for('static', filename='images/audio_placeholder.png') }}">
                     <source src="{{ url_for('static', filename='audios/cloned_output.wav') }}" type="audio/wav">
                     您的浏览器不支持音频播放。
                 </video>
             </div>
 
-            <!-- 右侧：参数控制区 (添加 tech-panel 类) -->
-            <div class="form-section tech-panel">
+            <!-- 右侧参数区 -->
+            <div class="form-section">
                 <form id="chatForm">
-                    <!-- 1. 数字人模型 -->
+                    <!-- 1. 数字人模型 (保留) -->
                     <div class="form-group">
-                        <label><i class="fas fa-user-astronaut"></i> 数字人模型</label>
+                        <label>数字人模型</label>
                         <select name="model_name">
-                            <option value="SyncTalk">SyncTalk (推荐)</option>
+                            <option value="SyncTalk">SyncTalk</option>
                             <option value="Wav2Lip">Wav2Lip</option>
                             <option value="SadTalker">SadTalker</option>
                         </select>
                     </div>
 
-                    <!-- 2. 模型权重 -->
+                    <!-- 2. 模型权重 (保留) -->
                     <div class="form-group">
-                        <label><i class="fas fa-folder-open"></i> 模型权重路径</label>
-                        <input type="text" name="model_param" value="checkpoints/demo.pth" placeholder="输入路径...">
+                        <label>模型权重路径</label>
+                        <input type="text" name="model_param" value="checkpoints/demo.pth">
                     </div>
 
-                    <!-- 3. 参考音色 -->
+                    <!-- 3. 参考音色 (RVC) -->
                     <div class="form-group">
-                        <label><i class="fas fa-wave-square"></i> 参考音色 (RVC)</label>
+                        <label>参考音色</label>
                         <select name="voice_clone" id="voice_clone_select">
-                            <option value="zhb">zhb - 默认男声</option>
-                            <option value="nahida">nahida - 纳西妲</option>
+                            <option value="zhb">zhb</option>
+                            <option value="nahida">nahida</option>
                         </select>
                     </div>
 
-                    <!-- 4. LLM 模型 -->
+                    <!-- 4. LLM 模型选择 (更新为4个指定选项) -->
                     <div class="form-group">
-                        <label><i class="fas fa-brain"></i> LLM 模型 (多轮对话)</label>
+                        <label>LLM 模型 (含多轮对话)</label>
                         <select name="api_choice" id="api_choice_select">
-                            <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                            <option value="glm-4.5">GLM-4.5</option>
-                            <option value="glm-4.5-flash">GLM-4.5 Flash</option>
+                            <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+                            <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+                            <option value="glm-4.5">glm-4.5</option>
+                            <option value="glm-4.5-flash">glm-4.5-flash</option>
                         </select>
                     </div>
                     
-                    <!-- 按钮组：使用新的 CSS 类名 -->
-                    <div class="button-group">
-                        <button type="submit" class="generate-btn primary-btn">
-                            <i class="fas fa-comments"></i> 开始对话
-                        </button>
-                        <button type="button" id="clearHistoryBtn" class="generate-btn secondary-btn">
-                            <i class="fas fa-trash-alt"></i> 清除记忆
-                        </button>
+                    <div class="button-group" style="display: flex; gap: 10px;">
+                        <button type="submit" class="generate-btn" style="flex: 2;">🎤 开始对话</button>
+                        <button type="button" id="clearHistoryBtn" class="generate-btn" style="flex: 1; background: #666;">🗑️ 清除记忆</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
     
-    <!-- 模态框 (参数说明) -->
+    <!-- 帮助 Modal 保留 ... -->
     <div class="vg-modal-backdrop" id="vg_helpModal" role="dialog" aria-modal="true" aria-labelledby="vg_helpTitle" tabindex="-1" hidden>
         <div class="vg-modal-content" role="document">
             <div class="vg-modal-header">
-                <h2 class="vg-modal-title" id="vg_helpTitle">系统参数说明</h2>
+                <h2 class="vg-modal-title" id="vg_helpTitle">参数说明</h2>
                 <button class="vg-modal-close" id="vg_closeHelpBtn" aria-label="关闭">✕</button>
             </div>
-
             <pre id="vg_helpBody" class="vg-modal-body" tabindex="0" data-src="{{ url_for('static', filename='text/chat_system.txt') }}"></pre>
-
-            <div class="vg-modal-actions">
-                <button class="vg-btn vg-btn-primary" id="vg_playTutorialBtn" type="button"
-                        data-video="{{ url_for('static', filename='videos/tutorial.mp4') }}">
-                    <i class="fas fa-play-circle"></i> 播放教程视频
-                </button>
-            </div>
         </div>
     </div>
 
     <script src="{{ url_for('static', filename='js/chat_system.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/instruction.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/elaboration.js') }}"></script>
     
     <script>
-        // 清除历史逻辑
+        // 简单的清除历史逻辑
         document.getElementById('clearHistoryBtn').addEventListener('click', function() {
-            // 使用自定义样式的确认逻辑通常更好，但为了简单这里保留原生 confirm
-            if(confirm('警告：确定要格式化对话记忆区吗？此操作不可逆。')) {
-                const btn = this;
-                const originalText = btn.innerHTML;
-                
-                // 按钮加载状态
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 清除中...';
-                
+            if(confirm('确定要清除对话记忆吗？')) {
                 fetch('/clear_history', { method: 'POST' })
                     .then(res => res.json())
                     .then(data => {
                         alert(data.message);
-                        document.getElementById('statusMessage').textContent = '记忆扇区已重置';
-                        document.getElementById('statusMessage').style.color = 'var(--neon-cyan)';
+                        document.getElementById('statusMessage').textContent = '记忆已清除';
                     })
-                    .catch(err => {
-                        alert('系统错误：清除失败');
-                    })
-                    .finally(() => {
-                        btn.innerHTML = originalText;
-                    });
+                    .catch(err => alert('清除失败'));
             }
         });
     </script>
