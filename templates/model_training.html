@@ -4,9 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <title>模型训练界面</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <!-- 新增：复用 video_help.css 为本页提供 使用教程 样式 -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/elaboration.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/model_training.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/instruction.css') }}">
 </head>
 
 <body class="subpage-bg">
@@ -15,11 +14,13 @@
         ← 返回
     </button>
 
-    <!-- 右上角：使用教程（复用 video_help.css / video_generation_help.js） -->
     <button class="vg-help-button" id="vg_openHelpBtn" aria-haspopup="dialog" aria-controls="vg_helpModal">参数说明</button>
 
+    
     <div class="page-container">
-        <h2>模型训练界面</h2>
+        <div class="page-title-box">
+            <h2>模型训练界面</h2>
+        </div>
         <div class="video-page-container">
             <!-- 左侧：训练结果视频 -->
             <div class="video-display">
@@ -69,7 +70,6 @@
         </div>
     </div>
 
-    <!-- 共用 modal（与 video_generation/chat_system 页面一致，内容从 static/text/index.txt 加载） -->
     <div class="vg-modal-backdrop" id="vg_helpModal" role="dialog" aria-modal="true" aria-labelledby="vg_helpTitle" tabindex="-1" hidden>
         <div class="vg-modal-content" role="document">
             <div class="vg-modal-header">
@@ -89,8 +89,7 @@
     </div>
 
     <script src="{{ url_for('static', filename='js/model_training.js') }}"></script>
-    <!-- 共用帮助脚本（页面专用，不引用 index.js） -->
-    <script src="{{ url_for('static', filename='js/elaboration.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/instruction.js') }}"></script>
 </body>
 
 </html>

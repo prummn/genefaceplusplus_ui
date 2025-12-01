@@ -1,0 +1,370 @@
+/* ==========================================================================
+   1. 配置层 (Configuration)
+   定义全局变量，方便一键换肤
+   ========================================================================== */
+:root {
+    /* 核心色板 */
+    --neon-cyan: #00ffff;        /* 主题色：荧光青 */
+    --neon-blue: #0077ff;        /* 辅助色：电光蓝 */
+    --warning-red: #ff3333;      /* 警示色：录制/错误 */
+    
+    /* 背景体系 */
+    --bg-deep: #000000;          /* 网页底色 */
+    --bg-glass: rgba(0, 20, 40, 0.6);   /* 玻璃面板底色 */
+    --bg-input: rgba(0, 255, 255, 0.03);/* 输入框底色 */
+    
+    /* 边框与文字 */
+    --border-dim: rgba(0, 255, 255, 0.2);
+    --text-primary: #e0f7fa;
+    --text-secondary: rgba(0, 255, 255, 0.6);
+    
+    /* 尺寸与间距 */
+    --radius-sm: 4px;
+    --radius-pill: 20px;
+}
+
+/* ==========================================================================
+   2. 基础层 (Base & Background)
+   页面通用的背景、字体设置
+   ========================================================================== */
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Source Han Sans CN', 'Microsoft YaHei', sans-serif;
+    background-color: var(--bg-deep);
+    color: var(--text-primary);
+    overflow-x: hidden; /* 防止光效溢出 */
+}
+
+/* 子页面专属背景：网格+混合模式 */
+body.subpage-bg {
+    background-image: 
+        radial-gradient(circle at center, rgba(5, 16, 33, 0.5) 0%, #000000 100%),
+        url('../images/tech-grid-bg.jpg'); /* 请确保路径正确 */
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-blend-mode: screen; /* 关键：滤色模式让网格发光 */
+}
+
+/* ==========================================================================
+   3. 导航与标题模块 (Navigation & Header)
+   ========================================================================== */
+/* 左上角返回按钮 & 右上角帮助按钮 - 统一胶囊风格 */
+.back-btn, 
+.vg-help-button {
+    position: absolute;
+    top: 30px;
+    z-index: 100;
+    padding: 8px 20px;
+    font-size: 14px;
+    
+    background: rgba(0, 10, 20, 0.6);
+    border: 1px solid var(--border-dim);
+    color: var(--neon-cyan);
+    border-radius: var(--radius-pill);
+    
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.1);
+    transition: all 0.3s ease;
+}
+
+.back-btn { left: 40px; }
+/* .vg-help-button 位置通常由外部JS或elaboration.css控制，这里仅定义基础外观 */
+
+.back-btn:hover, 
+.vg-help-button:hover {
+    background: var(--neon-cyan);
+    color: #000;
+    box-shadow: 0 0 20px var(--neon-cyan);
+    transform: translateY(-2px);
+}
+
+/* 页面主标题 */
+h2 {
+    display: block;
+    width: 100%;
+    margin: 50px 0;
+    text-align: center;
+    
+    font-family: 'Orbitron', sans-serif;
+    font-size: 2.5rem;
+    color: var(--neon-cyan);
+    text-shadow: 0 0 20px rgba(0, 255, 255, 0.6);
+    letter-spacing: 2px;
+}
+
+/* 标题下方的装饰性小字 */
+h2::after {
+    content: 'MODEL TRAINING  // GENEFACE++';
+    display: block;
+    margin-top: 10px;
+    font-size: 12px;
+    font-weight: normal;
+    color: rgba(0, 255, 255, 0.3);
+    letter-spacing: 4px;
+}
+
+/* ==========================================================================
+   4. 布局系统 (Layout System)
+   控制页面整体结构
+   ========================================================================== */
+.page-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding-bottom: 80px;
+}
+
+/* 核心容器：左右布局，垂直居中 */
+.video-page-container {
+    display: flex;
+    justify-content: center;
+    align-items: center; /* 关键：让连接光束对齐 */
+    gap: 80px;           /* 关键：留出空间给光束连接 */
+    flex-wrap: wrap;
+    position: relative;
+}
+
+/* ==========================================================================
+   5. 组件：HUD 视频播放器 (Left Module)
+   ========================================================================== */
+.video-display {
+    position: relative;
+    padding: 10px;
+    width: fit-content;
+    
+    background: rgba(0, 20, 40, 0.4);
+    border: 1px solid var(--border-dim);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+}
+
+/* 装饰：左上角的 REC 录制红点 */
+.video-display::before {
+    content: '● REC';
+    position: absolute;
+    top: -25px;
+    left: 0;
+    
+    color: var(--warning-red);
+    font-size: 12px;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: bold;
+    letter-spacing: 2px;
+    animation: blink 2s infinite;
+}
+
+/* 装饰：右下角的 L 型瞄准框 */
+.video-display::after {
+    content: '';
+    position: absolute;
+    bottom: -2px; 
+    right: -2px;
+    width: 20px; 
+    height: 20px;
+    
+    border-bottom: 2px solid var(--neon-cyan);
+    border-right: 2px solid var(--neon-cyan);
+    box-shadow: 2px 2px 5px var(--neon-cyan);
+}
+
+/* 视频本体 */
+#trainVideo, 
+#previewVideo {
+    display: block; /* 消除底部空隙 */
+    border: 1px solid rgba(0, 255, 255, 0.1);
+}
+
+/* ==========================================================================
+   6. 组件：表单控制台 (Right Module)
+   包含玻璃背景、连接光束、输入接口
+   ========================================================================== */
+.form-section {
+    position: relative; /* 为伪元素定位 */
+    flex: 1;
+    min-width: 380px;
+    max-width: 500px;
+    padding: 30px;
+    
+    background: var(--bg-glass);
+    backdrop-filter: blur(12px);
+    border-radius: 6px;
+    
+    /* 边框微光 */
+    box-shadow: 
+        0 0 0 1px rgba(0, 255, 255, 0.2),
+        0 0 40px rgba(0, 10, 20, 0.5);
+}
+
+/* --- 特效：左侧输入接口 (Input Port) --- */
+.form-section::before {
+    content: '';
+    position: absolute;
+    left: -4px; 
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    
+    width: 4px;
+    height: 60px;
+    border-radius: 2px;
+    background: var(--neon-cyan);
+    box-shadow: -5px 0 15px var(--neon-cyan), 0 0 10px rgba(0, 255, 255, 0.5);
+}
+
+/* --- 特效：连接光束 (Connection Beam) --- */
+.form-section::after {
+    content: '';
+    position: absolute;
+    left: -80px; /* 向左伸出填补 gap */
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+    
+    width: 80px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--neon-cyan));
+    opacity: 0.6;
+    box-shadow: 0 0 8px rgba(0, 255, 255, 0.4);
+}
+
+/* ==========================================================================
+   7. 组件：表单控件 (Inputs)
+   ========================================================================== */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--neon-cyan);
+    font-size: 0.9rem;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+/* 所有输入框通用样式 */
+input[type="text"], 
+input[type="number"],
+select, 
+textarea {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 12px 15px;
+    
+    background-color: var(--bg-input);
+    border: 1px solid var(--border-dim);
+    border-radius: var(--radius-sm);
+    color: #fff;
+    
+    font-family: 'Source Han Sans CN', monospace;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+/* 交互状态：获得焦点 */
+input:focus, 
+select:focus, 
+textarea:focus {
+    outline: none;
+    border-color: var(--neon-cyan);
+    background-color: rgba(0, 255, 255, 0.08);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.15);
+}
+
+::placeholder {
+    color: rgba(0, 255, 255, 0.3);
+}
+
+/* 下拉菜单箭头替换为 SVG */
+select {
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2300ffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 15px center;
+    background-size: 15px;
+}
+select option {
+    background-color: #001f3f; /* 防止下拉选项背景变白 */
+    color: #fff;
+}
+
+textarea {
+    height: 100px;
+    resize: vertical;
+}
+
+/* ==========================================================================
+   8. 组件：操作按钮 (Action Buttons)
+   机甲风格切角按钮
+   ========================================================================== */
+.generate-btn {
+    width: 100%;
+    padding: 15px;
+    margin-top: 10px;
+    
+    /* 字体风格 */
+    font-family: 'Orbitron', sans-serif;
+    font-size: 18px;
+    font-weight: bold;
+    color: #000; /* 深色文字高对比 */
+    letter-spacing: 2px;
+    
+    /* 背景与形状 */
+    background: linear-gradient(90deg, var(--neon-cyan), var(--neon-blue));
+    border: none;
+    cursor: pointer;
+    clip-path: polygon(
+        15px 0, 100% 0, 
+        100% calc(100% - 15px), calc(100% - 15px) 100%, 
+        0 100%, 0 15px
+    );
+    
+    transition: all 0.3s ease;
+}
+
+.generate-btn:hover {
+    transform: scale(1.02);
+    filter: brightness(1.2);
+    box-shadow: 0 0 40px rgba(0, 255, 255, 0.5);
+}
+
+.generate-btn:active {
+    transform: scale(0.98);
+}
+
+/* ==========================================================================
+   9. 动画定义 (Animations)
+   ========================================================================== */
+@keyframes blink {
+    0%   { opacity: 1; text-shadow: 0 0 5px red; }
+    50%  { opacity: 0.4; text-shadow: none; }
+    100% { opacity: 1; text-shadow: 0 0 5px red; }
+}
+
+/* ==========================================================================
+   10. 移动端适配 (Responsive)
+   ========================================================================== */
+@media (max-width: 900px) {
+    .video-page-container {
+        flex-direction: column; /* 上下排列 */
+        gap: 40px;
+    }
+    
+    /* 移动端隐藏连接光束，因为上下布局连起来不好看 */
+    .form-section::before, 
+    .form-section::after {
+        display: none;
+    }
+    
+    /* 元素宽度占满 */
+    .video-display, 
+    .form-section {
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    h2 { font-size: 1.8rem; }
+}
