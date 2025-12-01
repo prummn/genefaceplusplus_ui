@@ -6,6 +6,20 @@ from backend.model_trainer import train_model
 from backend.chat_engine import chat_response, clear_chat_history
 from werkzeug.utils import secure_filename
 from datetime import datetime
+from backend.model_trainer import (
+    # geneface_check_health,
+    # geneface_get_task_status,
+    # geneface_list_tasks,
+    geneface_health,
+    geneface_api_call,
+    geneface_list_videos
+)
+from werkzeug.utils import secure_filename
+from flask import send_file
+import re
+
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(__name__)
 
@@ -33,6 +47,8 @@ def video_generation():
 
 
 # 模型训练界面
+# app.py 中检查这个路由
+
 @app.route('/model_training', methods=['GET', 'POST'])
 def model_training():
     if request.method == 'POST':
@@ -41,16 +57,24 @@ def model_training():
             "ref_video": request.form.get('ref_video'),
             "gpu_choice": request.form.get('gpu_choice'),
             "epoch": request.form.get('epoch'),
-            "custom_params": request.form.get('custom_params')
+            "custom_params": request.form.get('custom_params'),
+            # GeneFace++ 专用参数
+            "video_id": request.form.get('video_id'),
+            "train_stage": request.form.get('train_stage'),
+            "max_updates_head": request.form.get('max_updates_head'),
+            "max_updates_torso": request.form.get('max_updates_torso'),
+            "head_ckpt": request.form.get('head_ckpt'),
         }
 
-        video_path = train_model(data)
-        video_path = "/" + video_path.replace("\\", "/")
+        result = train_model(data)
 
-        return jsonify({'status': 'success', 'video_path': video_path})
+        # 确保返回 JSON
+        if isinstance(result, dict):
+            return jsonify(result)
+        else:
+            return jsonify({'status': 'success', 'video_path': result})
 
     return render_template('model_training.html')
-
 
 # 实时对话系统界面
 @app.route('/chat_system', methods=['GET', 'POST'])
@@ -138,6 +162,84 @@ def clear_history():
         return jsonify({'status': 'success', 'message': msg})
     else:
         return jsonify({'status': 'error', 'message': msg})
+
+# GeneFace++ 状态查询路由
+@app.route('/geneface/health', methods=['GET'])
+def geneface_health_check():
+    """检查 GeneFace++ 服务"""
+    is_ok = geneface_health()
+    return jsonify({
+        "status": "ok" if is_ok else "unavailable",
+        "message": "服务正常" if is_ok else "请启动 Docker: docker start geneface"
+    })
+
+
+@app.route('/geneface/videos', methods=['GET'])
+def geneface_videos():
+    """列出可用视频"""
+    return jsonify(geneface_api_call("/videos"))
+
+
+@app.route('/geneface/upload', methods=['POST'])
+def geneface_upload():
+    """上传视频到 GeneFace++"""
+    if 'video' not in request.files:
+        return jsonify({"status": "error", "message": "没有视频文件"}), 400
+
+    video_file = request.files['video']
+    video_id = request.form.get('video_id')
+
+    if not video_id:
+        video_id = os.path.splitext(secure_filename(video_file.filename))[0]
+
+    # 清理 video_id
+    video_id = re.sub(r'[^a-zA-Z0-9_]', '_', video_id)
+
+    # 保存到 GeneFace 目录
+    geneface_video_dir = os.path.join(BASE_DIR, "GeneFace", "data", "raw", "videos")
+    os.makedirs(geneface_video_dir, exist_ok=True)
+
+    save_path = os.path.join(geneface_video_dir, f"{video_id}.mp4")
+    video_file.save(save_path)
+
+    return jsonify({
+        "status": "success",
+        "video_id": video_id,
+        "message": "视频上传成功"
+    })
+
+
+@app.route('/geneface/task/<task_id>', methods=['GET'])
+def geneface_task(task_id):
+    """查询任务状态"""
+    return jsonify(geneface_api_call(f"/task/{task_id}"))
+
+
+@app.route('/geneface/tasks', methods=['GET'])
+def geneface_tasks():
+    """列出所有任务"""
+    return jsonify(geneface_api_call("/tasks"))
+
+
+@app.route('/geneface/models', methods=['GET'])
+def geneface_models():
+    """列出已训练模型"""
+    return jsonify(geneface_api_call("/models"))
+
+
+@app.route('/geneface/video/<video_id>')
+def geneface_video_file(video_id):
+    """提供 GeneFace 视频文件访问"""
+    import re
+    # 清理 video_id 防止路径遍历攻击
+    video_id = re.sub(r'[^a-zA-Z0-9_-]', '', video_id)
+
+    video_path = os.path.join(BASE_DIR, "GeneFace", "data", "raw", "videos", f"{video_id}.mp4")
+
+    if os.path.exists(video_path):
+        return send_file(video_path, mimetype='video/mp4')
+    else:
+        return jsonify({"error": "视频不存在"}), 404
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', debug=True, port=5000)

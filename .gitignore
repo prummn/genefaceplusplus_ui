@@ -20,3 +20,17 @@ conversation_log.txt
 latest_ai_response.txt
 chat_history.json
 .env
+
+GeneFace/checkpoints/
+!GeneFace/checkpoints/.gitkeep
+
+GeneFace/data/binary/
+!GeneFace/data/binary/.gitkeep
+
+GeneFace/data/processed/videos/
+!GeneFace/data/processed/videos/.gitkeep
+
+GeneFace/data/raw/videos/
+GeneFace/data/raw/val_wavs/
+GeneFace/data/raw/val_wavs/.gitkeep
+!GeneFace/data/raw/videos/.gitkeep
