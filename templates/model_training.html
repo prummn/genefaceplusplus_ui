@@ -1,48 +1,257 @@
+<!-- templates/model_training.html -->
 <!DOCTYPE html>
 <html lang="zh">
-
 <head>
     <meta charset="UTF-8">
     <title>模型训练界面</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <!-- 新增：复用 video_help.css 为本页提供 使用教程 样式 -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/elaboration.css') }}">
+    <style>
+        /* 整体布局 */
+        .video-page-container {
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+            justify-content: center;
+        }
+
+        /* 左侧区域 */
+        .video-display {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 450px;
+            min-width: 450px;
+            flex-shrink: 0;
+        }
+
+        /* 右侧表单 - 向右移动 */
+        .form-section {
+            flex: 0 0 350px;
+            margin-left: 20px;
+        }
+
+        /* 视频播放器 */
+        #trainVideo {
+            width: 100%;
+            max-width: 450px;
+            background: #000;
+            border-radius: 8px;
+        }
+
+        /* 任务状态 - 深色主题 */
+        .task-status {
+            width: 100%;
+            padding: 15px;
+            background: #1a1a2e;
+            border-radius: 8px;
+            display: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            box-sizing: border-box;
+            color: #e0e0e0;
+        }
+        .task-status.active {
+            display: block;
+        }
+        .task-status .status-row {
+            margin: 8px 0;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+        }
+        .task-status .label {
+            font-weight: bold;
+            display: inline-block;
+            width: 85px;
+            color: #888;
+            flex-shrink: 0;
+        }
+        .task-status .value {
+            color: #e0e0e0;
+        }
+        .status-pending { color: #ffb74d !important; }
+        .status-running { color: #4fc3f7 !important; }
+        .status-completed { color: #81c784 !important; }
+        .status-failed { color: #e57373 !important; }
+
+        /* 进度条 */
+        .progress-bar {
+            width: 100%;
+            height: 24px;
+            background: #2d2d44;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-top: 12px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4fc3f7, #2196f3);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .progress-fill.error {
+            background: linear-gradient(90deg, #e57373, #f44336);
+        }
+
+        /* 日志区域 */
+        .log-container {
+            width: 100%;
+            background: #1a1a2e;
+            border-radius: 8px;
+            padding: 12px;
+            max-height: 250px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            display: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            box-sizing: border-box;
+        }
+        .log-container.active {
+            display: block;
+        }
+        .log-header {
+            color: #888;
+            font-size: 12px;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #333;
+        }
+        .log-line {
+            color: #d4d4d4;
+            margin: 5px 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.5;
+        }
+        .log-line.info { color: #4fc3f7; }
+        .log-line.success { color: #81c784; }
+        .log-line.error { color: #e57373; }
+        .log-line.warning { color: #ffb74d; }
+        .log-line.step { color: #ce93d8; font-weight: bold; }
+    </style>
 </head>
 
 <body class="subpage-bg">
-    
-    <button onclick="window.location.href='/'" aria-label="返回首页" title="返回首页" class="back-btn">
-        ← 返回
-    </button>
 
-    <!-- 右上角：使用教程（复用 video_help.css / video_generation_help.js） -->
-    <button class="vg-help-button" id="vg_openHelpBtn" aria-haspopup="dialog" aria-controls="vg_helpModal">参数说明</button>
+    <button onclick="window.location.href='/'" class="back-btn">← 返回</button>
+    <button class="vg-help-button" id="vg_openHelpBtn">参数说明</button>
 
     <div class="page-container">
         <h2>模型训练界面</h2>
         <div class="video-page-container">
-            <!-- 左侧：训练结果视频 -->
+            <!-- 左侧 -->
             <div class="video-display">
-                <video id="trainVideo" controls width="420">
-                    <source src="{{ url_for('static', filename='videos/sample.mp4') }}" type="video/mp4">
+                <video id="trainVideo" controls>
+                    <source id="videoSource" src="" type="video/mp4">
                 </video>
+
+                <!-- 任务状态 - 深色主题 -->
+                <div id="taskStatus" class="task-status">
+                    <div class="status-row">
+                        <span class="label">任务 ID:</span>
+                        <span class="value" id="taskId">-</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="label">状态:</span>
+                        <span class="value" id="taskState">-</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="label">当前步骤:</span>
+                        <span class="value" id="taskStep">-</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div id="progressFill" class="progress-fill" style="width: 0%;">0%</div>
+                    </div>
+                    <div class="status-row" style="margin-top: 12px;">
+                        <span class="label">消息:</span>
+                        <span class="value" id="taskMessage">-</span>
+                    </div>
+                </div>
+
+                <!-- 日志 -->
+                <div id="logContainer" class="log-container">
+                    <div class="log-header">📋 训练日志</div>
+                    <div id="logContent"></div>
+                </div>
             </div>
 
-            <!-- 右侧：输入框 -->
+            <!-- 右侧表单 -->
             <div class="form-section">
                 <form id="trainForm">
                     <div class="form-group">
                         <label>模型选择</label>
-                        <select name="model_choice">
-                            <option value="modelA">Model A</option>
-                            <option value="modelB">Model B</option>
+                        <select name="model_choice" id="model_choice" onchange="toggleModelOptions()">
                             <option value="SyncTalk">SyncTalk</option>
+                            <option value="GeneFace++">GeneFace++</option>
                         </select>
                     </div>
 
-                    <div class="form-group">
-                        <label>参考视频/图像地址</label>
-                        <input type="text" name="ref_video" placeholder="请输入参考视频或图像的相对路径">
+                    <div id="synctalk_options">
+                        <div class="form-group">
+                            <label>参考视频地址</label>
+                            <input type="text" name="ref_video" placeholder="请输入视频路径">
+                        </div>
+                        <div class="form-group">
+                            <label>Epoch</label>
+                            <input type="number" name="epoch" min="1" value="10">
+                        </div>
+                    </div>
+
+                    <div id="geneface_options" style="display: none;">
+                        <div class="form-group">
+                            <label>视频来源</label>
+                            <select id="video_source" onchange="toggleVideoSource()">
+                                <option value="existing">选择已有视频</option>
+                                <option value="upload">上传新视频</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" id="existing_video_group">
+                            <label>选择视频</label>
+                            <select name="video_id" id="video_select" onchange="onVideoSelected()">
+                                <option value="">-- 请选择 --</option>
+                            </select>
+                            <button type="button" onclick="refreshVideoList()" style="margin-top: 5px;">刷新</button>
+                        </div>
+
+                        <div class="form-group" id="upload_video_group" style="display: none;">
+                            <label>上传视频</label>
+                            <input type="file" id="video_file" accept="video/mp4">
+                            <input type="text" id="new_video_id" placeholder="Video ID" style="margin-top: 5px;">
+                            <button type="button" onclick="uploadVideo()" style="margin-top: 5px;">上传</button>
+                            <span id="upload_status"></span>
+                        </div>
+
+                        <div class="form-group">
+                            <label>训练阶段</label>
+                            <select name="train_stage" id="train_stage" onchange="onTrainStageChange()">
+                                <option value="preprocess">1. 数据预处理</option>
+                                <option value="head">2. 头部模型训练</option>
+                                <option value="torso">3. 身体模型训练</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>头部训练步数</label>
+                            <input type="number" name="max_updates_head" value="40000" min="1000" step="1000">
+                        </div>
+
+                        <div class="form-group">
+                            <label>身体训练步数</label>
+                            <input type="number" name="max_updates_torso" value="40000" min="1000" step="1000">
+                        </div>
+
+                        <div class="form-group" id="head_ckpt_group" style="display: none;">
+                            <label>Head Checkpoint</label>
+                            <input type="text" name="head_ckpt" id="head_ckpt" placeholder="自动填充">
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -53,45 +262,228 @@
                         </select>
                     </div>
 
-                    <div class="form-group">
-                        <label>Epoch（训练轮数）</label>
-                        <input type="number" name="epoch" min="1" value="10">
-                    </div>
-
-                    <div class="form-group">
-                        <label>自定义训练参数</label>
-                        <textarea name="custom_params" placeholder="请输入自定义参数..."></textarea>
-                    </div>
-
-                    <button type="submit" class="generate-btn">Training!</button>
+                    <button type="submit" class="generate-btn" id="submitBtn">开始训练</button>
                 </form>
+
+                <div id="geneface_status" style="margin-top: 10px; display: none;">
+                    <span id="service_status"></span>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- 共用 modal（与 video_generation/chat_system 页面一致，内容从 static/text/index.txt 加载） -->
-    <div class="vg-modal-backdrop" id="vg_helpModal" role="dialog" aria-modal="true" aria-labelledby="vg_helpTitle" tabindex="-1" hidden>
-        <div class="vg-modal-content" role="document">
-            <div class="vg-modal-header">
-                <h2 class="vg-modal-title" id="vg_helpTitle">参数说明</h2>
-                <button class="vg-modal-close" id="vg_closeHelpBtn" aria-label="关闭">✕</button>
-            </div>
+    <script>
+    let pollInterval = null;
+    let lastStep = '';
 
-            <pre id="vg_helpBody" class="vg-modal-body" tabindex="0" data-src="{{ url_for('static', filename='text/model_training.txt') }}"></pre>
+    function onVideoSelected() {
+        const videoId = document.getElementById('video_select').value;
+        const videoEl = document.getElementById('trainVideo');
+        const sourceEl = document.getElementById('videoSource');
+        if (videoId) {
+            sourceEl.src = `/geneface/video/${videoId}`;
+            videoEl.load();
+            addLog(`已选择视频: ${videoId}`, 'info');
+        }
+    }
 
-            <div class="vg-modal-actions" aria-hidden="false">
-                <button class="vg-btn vg-btn-primary" id="vg_playTutorialBtn" type="button"
-                        data-video="{{ url_for('static', filename='videos/tutorial.mp4') }}">
-                    播放教程视频
-                </button>
-            </div>
-        </div>
-    </div>
+    function toggleModelOptions() {
+        const choice = document.getElementById('model_choice').value;
+        document.getElementById('synctalk_options').style.display = choice === 'GeneFace++' ? 'none' : 'block';
+        document.getElementById('geneface_options').style.display = choice === 'GeneFace++' ? 'block' : 'none';
+        document.getElementById('geneface_status').style.display = choice === 'GeneFace++' ? 'block' : 'none';
+        if (choice === 'GeneFace++') {
+            checkGenefaceHealth();
+            refreshVideoList();
+        }
+    }
+
+    function toggleVideoSource() {
+        const source = document.getElementById('video_source').value;
+        document.getElementById('existing_video_group').style.display = source === 'existing' ? 'block' : 'none';
+        document.getElementById('upload_video_group').style.display = source === 'upload' ? 'block' : 'none';
+    }
+
+    function onTrainStageChange() {
+        document.getElementById('head_ckpt_group').style.display =
+            document.getElementById('train_stage').value === 'torso' ? 'block' : 'none';
+    }
+
+    function addLog(msg, type = 'info') {
+        const container = document.getElementById('logContainer');
+        const content = document.getElementById('logContent');
+        container.classList.add('active');
+
+        const line = document.createElement('div');
+        line.className = `log-line ${type}`;
+        line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        content.appendChild(line);
+        container.scrollTop = container.scrollHeight;
+
+        while (content.children.length > 200) content.removeChild(content.firstChild);
+    }
+
+    function clearLogs() {
+        document.getElementById('logContent').innerHTML = '';
+    }
+
+    function checkGenefaceHealth() {
+        fetch('/geneface/health').then(r => r.json()).then(data => {
+            const el = document.getElementById('service_status');
+            el.innerHTML = data.status === 'ok' ? '✓ GeneFace++ 服务正常' : '✗ ' + data.message;
+            el.style.color = data.status === 'ok' ? '#81c784' : '#e57373';
+        }).catch(() => {
+            document.getElementById('service_status').innerHTML = '✗ 无法连接';
+            document.getElementById('service_status').style.color = '#e57373';
+        });
+    }
+
+    function refreshVideoList() {
+        const select = document.getElementById('video_select');
+        select.innerHTML = '<option value="">-- 加载中 --</option>';
+        fetch('/geneface/videos').then(r => r.json()).then(videos => {
+            select.innerHTML = '<option value="">-- 请选择 --</option>';
+            if (Array.isArray(videos)) {
+                videos.forEach(v => {
+                    const opt = document.createElement('option');
+                    opt.value = v.video_id;
+                    opt.textContent = `${v.video_id} (${v.size_mb} MB)`;
+                    select.appendChild(opt);
+                });
+                if (videos.length > 0) addLog(`已加载 ${videos.length} 个视频`, 'info');
+            }
+        });
+    }
+
+    function uploadVideo() {
+        const file = document.getElementById('video_file').files[0];
+        const videoId = document.getElementById('new_video_id').value;
+        const status = document.getElementById('upload_status');
+        if (!file) { status.textContent = '请选择文件'; return; }
+
+        const formData = new FormData();
+        formData.append('video', file);
+        if (videoId) formData.append('video_id', videoId);
+        status.textContent = '上传中...';
+
+        fetch('/geneface/upload', { method: 'POST', body: formData })
+            .then(r => r.json()).then(data => {
+                if (data.status === 'success') {
+                    status.textContent = '✓ 成功';
+                    status.style.color = '#81c784';
+                    document.getElementById('video_source').value = 'existing';
+                    toggleVideoSource();
+                    refreshVideoList();
+                    setTimeout(() => {
+                        document.getElementById('video_select').value = data.video_id;
+                        onVideoSelected();
+                    }, 500);
+                } else {
+                    status.textContent = '✗ ' + data.message;
+                    status.style.color = '#e57373';
+                }
+            });
+    }
+
+    function updateTaskStatus(data) {
+        document.getElementById('taskStatus').classList.add('active');
+        document.getElementById('taskId').textContent = data.task_id || '-';
+
+        const stateEl = document.getElementById('taskState');
+        const text = {pending:'等待中', running:'运行中', completed:'已完成', failed:'失败'};
+        stateEl.textContent = text[data.status] || data.status;
+        stateEl.className = 'value status-' + data.status;
+
+        document.getElementById('taskStep').textContent = data.current_step || '-';
+        document.getElementById('taskMessage').textContent = data.message || data.error || '-';
+
+        const fill = document.getElementById('progressFill');
+        let pct = 0;
+        if (data.status === 'completed') pct = 100;
+        else if (data.status === 'failed') { fill.classList.add('error'); }
+        else if (data.current_step) {
+            const m = data.current_step.match(/(\d+)\/(\d+)/);
+            if (m) pct = Math.round(parseInt(m[1]) / parseInt(m[2]) * 100);
+        }
+        fill.style.width = pct + '%';
+        fill.textContent = pct + '%';
+
+        if (data.head_ckpt) document.getElementById('head_ckpt').value = data.head_ckpt;
+    }
+
+    function pollTaskStatus(taskId) {
+        if (pollInterval) clearInterval(pollInterval);
+        lastStep = '';
+
+        const poll = () => {
+            fetch(`/geneface/task/${taskId}`).then(r => r.json()).then(data => {
+                updateTaskStatus(data);
+                if (data.current_step && data.current_step !== lastStep) {
+                    addLog(data.current_step, 'step');
+                    lastStep = data.current_step;
+                }
+                if (data.status === 'completed' || data.status === 'failed') {
+                    addLog(data.status === 'completed' ? '✓ 完成！' : '✗ 失败: ' + (data.error || ''),
+                           data.status === 'completed' ? 'success' : 'error');
+                    clearInterval(pollInterval);
+                    document.getElementById('submitBtn').disabled = false;
+                    document.getElementById('submitBtn').textContent = '开始训练';
+                }
+            });
+        };
+        poll();
+        pollInterval = setInterval(poll, 3000);
+    }
+
+    document.getElementById('trainForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+
+        if (formData.get('model_choice') === 'GeneFace++') {
+            const videoId = document.getElementById('video_select').value;
+            if (!videoId) { alert('请选择视频'); return; }
+            formData.set('video_id', videoId);
+        }
+
+        clearLogs();
+        addLog('提交任务...', 'info');
+        document.getElementById('submitBtn').disabled = true;
+        document.getElementById('submitBtn').textContent = '处理中...';
+        document.getElementById('progressFill').classList.remove('error');
+
+        fetch('/model_training', { method: 'POST', body: formData })
+            .then(r => {
+                if (!r.headers.get('content-type')?.includes('application/json')) {
+                    throw new Error('服务器响应错误');
+                }
+                return r.json();
+            })
+            .then(data => {
+                if (data.task_id) {
+                    addLog(`任务创建: ${data.task_id}`, 'success');
+                    pollTaskStatus(data.task_id);
+                } else if (data.status === 'error') {
+                    addLog('错误: ' + data.message, 'error');
+                    document.getElementById('submitBtn').disabled = false;
+                    document.getElementById('submitBtn').textContent = '开始训练';
+                } else {
+                    addLog('完成', 'success');
+                    document.getElementById('submitBtn').disabled = false;
+                    document.getElementById('submitBtn').textContent = '开始训练';
+                }
+            })
+            .catch(e => {
+                addLog('请求失败: ' + e.message, 'error');
+                document.getElementById('submitBtn').disabled = false;
+                document.getElementById('submitBtn').textContent = '开始训练';
+            });
+    });
+
+    document.getElementById('logContainer').classList.add('active');
+    addLog('页面就绪', 'info');
+    </script>
 
     <script src="{{ url_for('static', filename='js/model_training.js') }}"></script>
-    <!-- 共用帮助脚本（页面专用，不引用 index.js） -->
     <script src="{{ url_for('static', filename='js/elaboration.js') }}"></script>
 </body>
-
 </html>
-
