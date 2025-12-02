@@ -4,10 +4,11 @@
     <meta charset="UTF-8">
     <title>GENEFACEPLUSPLUS TALKING SYSTEM</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/instruction.css') }}"> <!-- 新增：引入 instruction.css，包含 help-button 样式 -->
 </head>
 <body class="main-bg">
-    <!-- 新增：右上角“使用教程”按钮 -->
-    <button class="help-button" id="openHelpBtn" aria-haspopup="dialog" aria-controls="helpModal">使用教程</button>
+
+    <button class="vg-help-button" id="vg_openHelpBtn" aria-haspopup="dialog" aria-controls="vg_helpModal">使用教程</button>
 
     <div class="container">
         <h1>GENEFACEPLUSPLUS<br>TALKING SYSTEM</h1>
@@ -18,7 +19,6 @@
         </div>
     </div>
 
-    <!-- 添加浮动叶子元素（5 个示例） -->
     <div class="floating-elements" aria-hidden="true">
         <div class="leaf"></div>
         <div class="leaf"></div>
@@ -29,37 +29,26 @@
 
     <div class="footer">© 2025 昊斌哥哥粉丝团LAB</div>
 
-    <!-- 新增：弹窗结构（初始隐藏），内容请参照项目根目录 README.md 替换下面的 placeholder -->
-    <div class="modal-backdrop" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpTitle" tabindex="-1">
-        <div class="modal-content" role="document">
-            <div class="modal-header">
-                <h2 class="modal-title" id="helpTitle">使用教程</h2>
-                <button class="modal-close" id="closeHelpBtn" aria-label="关闭">✕</button>
+    <div class="vg-modal-backdrop" id="vg_helpModal" role="dialog" aria-modal="true" aria-labelledby="vg_helpTitle" tabindex="-1" hidden>
+        <div class="vg-modal-content" role="document">
+            <div class="vg-modal-header">
+                <h2 class="vg-modal-title" id="vg_helpTitle">使用教程</h2>
+                <button class="vg-modal-close" id="vg_closeHelpBtn" aria-label="关闭">✕</button>
             </div>
-            <!-- 从外部文本文件加载内容，删除内联文字 -->
-            <pre id="helpBody" class="modal-body" tabindex="0" data-src="{{ url_for('static', filename='text/index.txt') }}"></pre>
-            
-            <!-- 新增：底部操作栏，仅含“播放教程视频”按钮 -->
-            <div class="modal-actions" aria-hidden="false">
-                <!-- 添加 data-video 属性，JS 从该属性读取 URL 并在新标签页打开 -->
-                <button class="btn primary" id="playTutorialBtn" type="button"
+
+            <pre id="vg_helpBody" class="vg-modal-body" tabindex="0" data-src="{{ url_for('static', filename='text/index.txt') }}"></pre>
+
+            <div class="vg-modal-actions" aria-hidden="false">
+                <button class="vg-btn vg-btn-primary" id="vg_playTutorialBtn" type="button"
                         data-video="{{ url_for('static', filename='videos/tutorial.mp4') }}">
                     播放教程视频
                 </button>
-            </div>
-
-            <!-- 新增：内嵌视频容器（初始隐藏），静态文件位于 static/videos/tutorial.mp4（根据实际位置调整） -->
-            <div class="modal-video" id="modalVideo" aria-hidden="true" hidden>
-                <video id="tutorialVideo" controls preload="metadata" playsinline>
-                    <source src="{{ url_for('static', filename='videos/tutorial.mp4') }}" type="video/mp4">
-                    您的浏览器不支持视频播放。
-                </video>
-                <button class="modal-video-close" id="closeVideoBtn" aria-label="关闭视频">关闭视频</button>
             </div>
         </div>
     </div>
 
     <!-- 引入外部脚本 -->
     <script src="{{ url_for('static', filename='js/index.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/instruction.js') }}"></script>
 </body>
 </html>

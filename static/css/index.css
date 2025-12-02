@@ -1,3 +1,6 @@
+@import url('/static/fonts/fonts-orbitron.css');
+@import url('/static/fonts/fonts-Noto+Sans+SC.css');
+
 :root{
     --bg-dark-1: #0a0a0a;
     --bg-dark-2: #1b1b1b;
@@ -25,7 +28,9 @@ body.main-bg{
     font-family: 'CustomUI', "Segoe UI", "Microsoft YaHei", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
     color: #fff;
     background: none; /* 移除深色渐变，允许背景图完全可见 */
-    overflow: hidden;
+    /* 允许横向滚动以查看超出视口的宽度（标题过长时可左右滑动） */
+    overflow-x: auto;
+    overflow-y: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
@@ -35,7 +40,7 @@ body.main-bg::before{
     content: "";
     position: fixed;
     inset: 0;
-    background-image: url('/static/images/background.jpeg');
+    background-image: url('/static/images/background1.jpeg');
     background-size: cover;
     background-position: center;
     opacity: 1; /* 显示完整背景 */
@@ -43,43 +48,66 @@ body.main-bg::before{
     pointer-events: none;
     z-index: -1; /* 放到最底层，确保页面元素在上面 */
 }
+
+/* 替换：原来的 .container::before（使用 border.png）改为四角高亮与半透明底 */
 .container::before {
-    content: "";
+    content: '';
     position: absolute;
-    top: -26px; /* 向上移动 */
-    left: -24px; /* 向左移动 */
-    width: calc(100% + 45px); /* 扩大宽度 */
-    height: calc(100% + 50px); /* 扩大高度 */
-    border-radius: 2px;
-    background: url('/static/images/border.png') no-repeat center; /* 使用花纹边框图像 */
-    background-size: cover;
-    z-index: 0;            /* 降低到容器下面 */
-    pointer-events: none;  /* 不拦截鼠标事件 */
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    pointer-events: none;
+    z-index: 0;
+    /* clip-path 用于在四角保留线条，中间镂空 */
+    clip-path: polygon(
+        0 20px, 0 0, 20px 0,
+        100% 0, 100% 20px,
+        100% calc(100% - 20px), 100% 100%, calc(100% - 20px) 100%,
+        20px 100%, 0 100%, 0 calc(100% - 20px)
+    );
 }
 
-/* 卡片容器：确保位于装饰层之上以接收点击 */
+/* 替换：卡片容器（.container）优化，保持内容在上层可交互 */
 .container{
     position: relative;
-    z-index: 2; /* 提高，使内容（按钮）可点击 */
-    width: min(90%, 720px);
+    z-index: 2; /* 内容可点击 */
+    /* 宽度改为根据内容自适应，最小保持原先的约束，允许超过视口（配合 body 横向滚动） */
+    display: inline-block;
+    width: -moz-fit-content;
+    width: fit-content;
+    min-width: min(90%, 720px);
+    max-width: none; /* 不再强制限制，确保标题能完整显示 */
     padding: clamp(20px, 4vw, 40px);
     text-align: center;
-    background: transparent; /* 透明，展示完整背景 */
-    border: 1px solid rgba(255,255,255,0.06); /* 可选：轻微边框用于分离 */
+    background: rgba(0, 20, 40, 0.6); /* 深色半透明底，提升可读性 */
+    border: 1px solid rgba(0, 255, 255, 0.18); /* 极细的亮青边线 */
     border-radius: var(--radius);
-    box-shadow: 0 8px 30px rgba(0,0,0,0.45); /* 保留暗色阴影以提高对比 */
-    backdrop-filter: blur(6px); /* 可保留轻微模糊以提高可读性 */
+    box-shadow: 0 0 18px rgba(0, 255, 255, 0.12), 0 8px 30px rgba(0,0,0,0.45);
+    backdrop-filter: blur(6px);
     animation: fadeIn 1s ease both;
 }
 
-/* 标题 */
+/* 标题：不换行、纯 CSS 自适应，必要时配合下面的可选 JS 做精确缩放 */
 h1{
-    margin: 0 0 32px;
-    font-size: clamp(3rem, 5vw, 4rem); /* 放大标题字号 */
+    margin: 0 auto 24px;
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0 12px;               /* 两侧留白，避免紧贴边缘 */
+    white-space: nowrap;           /* 不换行 */
+    overflow: hidden;              /* 超出裁剪 */
+    text-overflow: clip;
+    font-size: clamp(1.2rem, 4.5vw, 3.75rem); /* 缩小到原来的75%（原为 clamp(1.6rem,6vw,5rem)） */
+    line-height: 1;                /* 紧凑行高（单行显示） */
     letter-spacing: 2px;
     color: var(--accent-a);
     text-shadow: 0 0 18px rgba(0,229,255,0.6);
     animation: glowText 3s infinite alternate;
+    font-family: 'Orbitron', 'CustomUI', "Segoe UI", "Microsoft YaHei", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    text-align: center;
+    position: relative;
+    z-index: 2;
 }
 
 /* 按钮组 */
@@ -90,34 +118,41 @@ h1{
 }
 
 .button-container button {
-    background: linear-gradient(90deg, #00c6ff, #0072ff);
-    border: none;
-    color: white;
-    font-size: 2.1rem; /* 放大字体 */
-    font-weight: bold;
-    padding: 16px 0; /* 增加上下内边距 */
+    /* 应用 holo 风格为主样式（保留原先可读性与排版） */
+    background: rgba(0, 255, 255, 0.1); /* 极淡的青色背景 */
+    border: 1px solid rgba(0, 255, 255, 0.5); /* 半透明边框 */
+    color: #00ffff; /* 荧光青色文字 */
+    backdrop-filter: blur(5px); /* 磨砂玻璃效果 */
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.2), inset 0 0 10px rgba(0, 255, 255, 0.1);
+    transition: all 0.3s ease;
     border-radius: 12px;
     cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 0 15px rgba(0, 229, 255, 0.3);
-    font-family: 'CustomUI', "楷体", "Microsoft YaHei", Arial, sans-serif;
+    font-size: 2.1rem; /* 保留放大字体 */
+    font-weight: bold;
+    padding: 16px 0;
+    /* 保留原先的视觉细节 */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-
-    /* 在中文字符间增加一点空隙 */
     letter-spacing: 0.6em;
     text-align: center;
     line-height: 1.4;
+    font-family: 'Noto Sans SC', 'CustomUI', "Microsoft YaHei", Arial, sans-serif;
+    /* 保持可点击时的轻微发光 */
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.2), inset 0 0 10px rgba(0, 255, 255, 0.1);
 }
 
+/* 悬停与按下的 holo 效果（来自你的定义） */
 .button-container button:hover {
+    background: rgba(0, 255, 255, 0.3); /* 悬停变亮 */
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.6), inset 0 0 20px rgba(0, 255, 255, 0.4);
+    text-shadow: 0 0 8px #fff;
     transform: scale(1.05);
-    background: linear-gradient(90deg, #0072ff, #00c6ff);
-    box-shadow: 0 0 25px rgba(0, 229, 255, 0.6);
+    cursor: pointer;
 }
 
 .button-container button:active {
     transform: scale(0.98);
+    opacity: 0.95;
 }
 
 /* 底部标识 */
@@ -194,44 +229,11 @@ h1{
     }
 }
 
-/* 使用教程按钮与弹窗样式 */
-.help-button {
-    position: fixed;
-    top: 16px;
-    right: 16px;
-    z-index: 999;
-    padding: 10px 14px;
-    border-radius: 8px;
-    border: none;
-    background: rgba(0,0,0,0.65);
-    color: #fff;
-    cursor: pointer;
-    box-shadow: 0 6px 14px rgba(0,0,0,0.35);
-    font-size: 2rem;
-    line-height: 1;
-    font-family: 'CustomUI', "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-}
+/* help-button 样式已移除 —— 迁移到 instruction.css 中管理 */
 
-.help-button:hover{
-    background: rgba(0,0,0,0.8);
-    transform: translateY(-1px);
-}
-.help-button:active{
-    transform: translateY(0);
-}
-
-/* 小屏时适当缩小按钮与位置 */
-@media (max-width: 480px){
-    .help-button{
-        top: 10px;
-        right: 10px;
-        padding: 8px 10px;
-        font-size: 1rem;
-    }
-}
-
+/* 移动端适配，参考 instruction.css 的规则 (help-button 已移除) */
+/* 原 .help-button 的移动端规则已迁移，不再保留在此处 */
+ 
 /* ===== 美化的 modal 界面 ===== */
 .modal-backdrop {
     display: none;

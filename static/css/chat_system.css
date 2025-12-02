@@ -1,207 +1,445 @@
-/* 将样式限定在 .page-container 范围，避免覆盖全局 body / layout */
+/* ==========================================================================
+   1. 核心变量配置 - 增强对比度与霓虹感
+   ========================================================================== */
 
-/* 主布局（在 page-container 内） */
-.page-container .video-page-container {
-    display: flex;
-    max-width: 1100px;
-    margin: 0 auto;
-    gap: 24px;
-
-    /* 改为完全透明背景 */
-    background: transparent;
-
-    border-radius: 0;
-    box-shadow: none;
-    overflow: visible;
-    align-items: flex-start;
-    padding: 0;
-    box-sizing: border-box;
+body {
+    height: 100vh; /* 强制高度为视口高度 */
+    overflow: hidden; /* 隐藏所有溢出内容，禁止滚动 */
+    position: fixed; /* 锁死位置 */
+    width: 100%;
 }
 
-/* 左侧视频区域 */
-.page-container .video-display {
-    flex: 1;
-    padding: 20px;
+:root {
+    --neon-cyan: #00ffff;
+    --neon-cyan-dim: rgba(0, 255, 255, 0.15);
+    --neon-blue: #0077ff;
+    --warning-red: #ff4d4d;
+    
+    /* 背景色调整：更深邃，保证文字可读性 */
+    --deep-bg: #000510;
+    --panel-bg: rgba(2, 12, 27, 0.75); /* 面板背景更深，对比度更高 */
+    --panel-border: rgba(0, 255, 255, 0.3);
+    
+    --input-bg: rgba(0, 0, 0, 0.4);
+    --input-border: rgba(0, 255, 255, 0.15);
+    
+    --text-main: #ffffff;
+    --text-sec: #94a3b8;
+    
+    --radius-pill: 30px;
+    --radius-card: 8px;
+}
+
+/* ==========================================================================
+   2. 基础页面设置 & 沉浸式背景
+   ========================================================================== */
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Orbitron', 'Source Han Sans CN', sans-serif; /* 优先使用科技字体 */
+    background-color: var(--deep-bg);
+    color: var(--text-main);
+    overflow-x: hidden;
+    min-height: 100vh;
+}
+
+body.subpage-bg {
+    /* 使用多重背景：底层是图片，上层是暗角遮罩，确保中心亮边缘暗 */
+    background-image: 
+        radial-gradient(circle at center, rgba(0, 10, 20, 0.3) 0%, rgba(0,0,0,0.9) 100%),
+        url('../images/tech-grid-bg2.jpg'); 
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+}
+
+/* ==========================================================================
+   3. 顶部导航
+   ========================================================================== */
+.back-btn, 
+.vg-help-button {
+    position: absolute;
+    top: 30px;
+    z-index: 100;
+    padding: 8px 24px;
+    font-size: 14px;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid var(--panel-border);
+    color: var(--neon-cyan);
+    border-radius: var(--radius-pill);
+    cursor: pointer;
+    backdrop-filter: blur(5px);
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.back-btn { left: 40px; }
+
+.back-btn:hover, .vg-help-button:hover {
+    background: var(--neon-cyan);
+    color: #000;
+    box-shadow: 0 0 20px var(--neon-cyan);
+    border-color: var(--neon-cyan);
+}
+
+/* ==========================================================================
+   4. 布局与标题
+   ========================================================================== */
+h2 {
+    text-align: center;
+    font-family: 'Orbitron', sans-serif;
+    color: var(--neon-cyan);
+    font-size: 3rem;
+    margin: 40px 0 60px 0;
+    text-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+    letter-spacing: 4px;
+    font-weight: 700;
+}
+
+h2::after {
+    content: 'REAL-TIME CONVERSATION SYSTEM';
+    display: block;
+    font-size: 12px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.4);
+    letter-spacing: 6px;
+    margin-top: 12px;
+}
+
+.video-page-container {
+    display: flex;
+    justify-content: center;
+    align-items: stretch; /* 让左右高度倾向一致 */
+    gap: 100px;
+    flex-wrap: wrap;
+    position: relative;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* ==========================================================================
+   5. 通用面板样式 (Tech Panel)
+   提取公共样式，增加四角装饰
+   ========================================================================== */
+.tech-panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: 4px;
+    position: relative;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* 科技感四角装饰 (Corner Accents) */
+.tech-panel::before, 
+.tech-panel::after {
+    content: '';
+    position: absolute;
+    width: 20px; height: 20px;
+    border: 2px solid var(--neon-cyan);
+    transition: all 0.3s;
+    pointer-events: none;
+}
+.tech-panel::before {
+    top: -1px; left: -1px;
+    border-right: none; border-bottom: none;
+}
+.tech-panel::after {
+    bottom: -1px; right: -1px;
+    border-left: none; border-top: none;
+}
+
+/* ==========================================================================
+   6. 左侧：交互显示区 (HUD)
+   ========================================================================== */
+.video-display {
+    display: flex;
+    flex-direction: column;
+    width: 400px;
+}
+
+/* 录音器模块 */
+.voice-recorder {
+    padding: 30px 20px;
+    background: rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid var(--panel-border);
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
+    min-height: 160px;
+    position: relative;
 }
 
-.page-container .video-display video {
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    margin-bottom: 20px;
-    max-width: 100%;
-    height: auto;
+/* 模块标签 */
+.module-label {
+    position: absolute;
+    top: 10px; left: 15px;
+    font-size: 10px;
+    color: var(--neon-cyan);
+    opacity: 0.7;
+    letter-spacing: 1px;
 }
 
-/* 右侧表单区域（固定占比 35%） */
-.page-container .form-section {
-    flex: 0 0 35%;
-    max-width: 35%;
-    padding: 20px;
-    background: rgba(249,249,249,0.98);
-    border-left: 1px solid #eee;
-    border-radius: 8px;
-    box-sizing: border-box;
-}
-
-/* 表单项 */
-.page-container .form-group {
-    margin-bottom: 18px;
-}
-
-.page-container label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: bold;
-    color: #555;
-}
-
-.page-container select,
-.page-container input,
-.page-container textarea {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 16px;
-    box-sizing: border-box;
-}
-
-.page-container textarea {
-    height: 80px;
-    resize: none;
-}
-
-/* 提交/生成按钮 */
-.page-container .generate-btn {
-    width: 100%;
-    padding: 12px;
-    background-color: #3498db;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    font-size: 16px;
+/* 录音按钮 - 增强版 */
+.record-btn {
+    width: 70px; height: 70px;
+    border-radius: 50%;
+    border: 2px solid var(--neon-cyan);
+    background: rgba(0, 0, 0, 0.5);
+    color: var(--neon-cyan);
     cursor: pointer;
-    transition: background-color 0.3s;
-}
-
-.page-container .generate-btn:hover {
-    background-color: #2980b9;
-}
-
-/* 语音录制器相关，保持在容器内 */
-.page-container .voice-recorder {
-    margin-top: 20px;
-    padding: 20px;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    text-align: center;
-}
-
-.page-container .recorder-title {
-    font-size: 18px;
-    margin-bottom: 15px;
-    color: #2c3e50;
-}
-
-.page-container .record-btn {
-    padding: 12px 24px;
-    background-color: #e74c3c;
-    color: white;
-    border: none;
-    border-radius: 50px;
-    font-size: 16px;
-    cursor: pointer;
-    transition: all 0.3s;
-    margin-bottom: 15px;
+    position: relative;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    margin: 0 auto 15px;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 2;
 }
 
-.page-container .record-btn:hover {
-    background-color: #c0392b;
+/* 按钮外圈光晕 */
+.record-btn::before {
+    content: '';
+    position: absolute;
+    top: -5px; left: -5px; right: -5px; bottom: -5px;
+    border-radius: 50%;
+    border: 1px dashed var(--panel-border);
+    animation: spin 10s linear infinite;
+}
+
+.record-btn:hover {
+    box-shadow: 0 0 30px var(--neon-cyan);
+    background: rgba(0, 255, 255, 0.1);
     transform: scale(1.05);
 }
 
-.page-container .record-btn.recording {
-    background-color: #2ecc71;
-    animation: pulse 1.5s infinite;
+.record-btn i, .record-btn span {
+    font-size: 12px;
+    margin-top: 4px;
 }
 
-.page-container .record-btn.recording:hover {
-    background-color: #27ae60;
+/* 录音状态 */
+.record-btn.recording {
+    border-color: var(--warning-red);
+    color: var(--warning-red);
+    box-shadow: 0 0 20px rgba(255, 77, 77, 0.6);
+    animation: pulseRed 1.5s infinite;
 }
 
-@keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(46,204,113,0.7); }
-    70% { box-shadow: 0 0 0 10px rgba(46,204,113,0); }
-    100% { box-shadow: 0 0 0 0 rgba(46,204,113,0); }
+.timer {
+    font-family: 'Orbitron', monospace; /* 数字用科技字体 */
+    font-size: 1.8rem;
+    color: #fff;
+    margin-top: 15px;
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px var(--neon-cyan);
 }
 
-.page-container .timer {
-    font-size: 24px;
-    font-weight: bold;
-    color: #2c3e50;
-    margin: 15px 0;
+/* 视频区域 */
+#chatVideo {
+    width: 100%;
+    display: block;
+    
+    /* 关键修改：将背景改为透明，或者设为极淡的半透明色 */
+    background: transparent; 
+    
+    /* 可选：去掉顶部分割线，让上下两部分看起来是一个整体 */
+    border-top: none; 
+    
+    /* 保持高度占位，避免布局塌陷 */
+    min-height: 250px;
+    
+    /* 确保视频未播放时，封面或空白区域能填满 */
+    object-fit: cover;
+    border-radius: 0 0 4px 4px; /* 底部圆角 */
 }
 
-.page-container .recording-indicator {
+/* ==========================================================================
+   7. 右侧：参数表单 (Control Panel)
+   ========================================================================== */
+.form-section {
+    flex: 1;
+    min-width: 380px;
+    max-width: 480px;
+    padding: 40px;
     display: flex;
-    align-items: center;
+    flex-direction: column;
     justify-content: center;
-    gap: 10px;
-    margin: 10px 0;
 }
 
-.page-container .recording-dot {
-    width: 12px;
-    height: 12px;
-    background-color: #e74c3c;
-    border-radius: 50%;
-    animation: blink 1.5s infinite;
+/* 连接光束 (Data Beam) - 动态版 */
+.form-section::before {
+    content: '';
+    position: absolute;
+    left: -100px; top: 50%;
+    width: 100px; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--neon-cyan));
+    box-shadow: 0 0 10px var(--neon-cyan);
+    z-index: 0;
+    opacity: 0.8;
+}
+
+/* 光束上的流动粒子 */
+.form-section::after {
+    content: '';
+    position: absolute;
+    left: -100px; top: 50%;
+    transform: translateY(-50%);
+    width: 40px; height: 4px;
+    background: #fff;
+    border-radius: 2px;
+    filter: blur(2px);
+    animation: dataFlow 2s infinite ease-in-out;
+}
+
+/* 表单控件 */
+.form-group { margin-bottom: 25px; }
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--neon-cyan);
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+input[type="text"], select {
+    width: 100%;
+    padding: 12px 16px;
+    background-color: var(--input-bg);
+    border: 1px solid var(--input-border);
+    color: #fff;
+    font-family: 'Source Han Sans CN', sans-serif;
+    font-size: 14px;
+    border-radius: 2px; /* 方正一点更科技 */
+    box-sizing: border-box;
+    transition: all 0.3s;
+}
+
+input[type="text"]:focus, select:focus {
+    outline: none;
+    border-color: var(--neon-cyan);
+    background-color: rgba(0, 255, 255, 0.05);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.2), inset 0 0 10px rgba(0, 255, 255, 0.05);
+}
+
+/* 下拉菜单箭头美化 */
+select {
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2300ffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 15px center;
+    background-size: 12px;
+    cursor: pointer;
+}
+select option { background-color: #001020; color: #fff; }
+
+/* ==========================================================================
+   8. 底部按钮组 (Mecha Style Buttons)
+   ========================================================================== */
+.button-group {
+    margin-top: 10px;
+    display: flex;
+    gap: 15px;
+}
+
+.generate-btn {
+    flex: 2;
+    padding: 14px;
+    font-family: 'Source Han Sans CN', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    /* 赛博朋克切角 */
+    clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
+    transition: all 0.3s;
+}
+
+/* 开始对话按钮 - 青蓝亮色 */
+.generate-btn.primary-btn {
+    background: linear-gradient(135deg, var(--neon-cyan), var(--neon-blue));
+    color: #000;
+    text-shadow: 0 0 2px rgba(255,255,255,0.5);
+}
+
+.generate-btn.primary-btn:hover {
+    filter: brightness(1.15);
+    box-shadow: 0 0 25px rgba(0, 255, 255, 0.4);
+    transform: translateY(-2px);
+}
+
+/* 清除记忆按钮 - 幽灵按钮 */
+.generate-btn.secondary-btn {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 14px;
+    /* 由于 clip-path 会裁剪 border，这里用 outline 或者 box-shadow 模拟边框稍微复杂，
+       为了简单起见，可以用 inset box-shadow 或者伪元素。
+       这里为了保持切角效果，直接用背景色区分 */
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+
+.generate-btn.secondary-btn:hover {
+    background: rgba(255, 77, 77, 0.15);
+    color: var(--warning-red);
+    box-shadow: 0 0 15px rgba(255, 77, 77, 0.2);
+}
+
+/* ==========================================================================
+   9. 动画定义
+   ========================================================================== */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes pulseRed {
+    0% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.4); }
+    70% { box-shadow: 0 0 0 15px rgba(255, 77, 77, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0); }
+}
+
+@keyframes dataFlow {
+    0% { left: -100px; opacity: 0; }
+    50% { opacity: 1; }
+    100% { left: 0; opacity: 0; }
 }
 
 @keyframes blink {
-    0%,50% { opacity: 1; }
-    51%,100% { opacity: 0; }
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
 }
 
-.page-container .status-message {
-    margin-top: 10px;
-    font-size: 14px;
-    color: #7f8c8d;
-}
-
-/* 响应式：窄屏时改为纵向排列 */
-@media (max-width: 768px) {
-    .page-container .video-page-container {
+/* ==========================================================================
+   10. 移动端适配
+   ========================================================================== */
+@media (max-width: 900px) {
+    .video-page-container {
         flex-direction: column;
-        gap: 16px;
+        align-items: center;
+        gap: 40px;
     }
-    .page-container .form-section {
-        flex: 1 1 100%;
-        max-width: 100%;
-        border-left: none;
-        border-top: 1px solid #eee;
+    
+    .form-section::before, .form-section::after { 
+        display: none; /* 移动端隐藏连接线 */ 
     }
-    .page-container .video-display {
-        flex: 1 1 100%;
-        max-width: 100%;
-        padding: 12px;
+    
+    .video-display, .form-section { 
+        width: 100%; 
+        max-width: 100%; 
+        min-width: auto;
     }
-}
-
-/* 扩充 page-container 高度到视口的 70% 并垂直居中内部内容 */
-.page-container{
-    min-height: 70vh;
-    display: flex;
-    flex-direction: column;
-    justify-content: center; /* 垂直居中 .video-page-container 等子元素 */
-    box-sizing: border-box;
+    
+    h2 { font-size: 2rem; }
 }
