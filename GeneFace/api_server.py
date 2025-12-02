@@ -6,12 +6,17 @@ GeneFace++ API 服务
 from flask import Flask, request, jsonify
 import subprocess
 import os
+import select
+import functools
+import sys
 import threading
 import time
 import uuid
 import json
 import shutil
 import re
+
+print = functools.partial(print, flush=True)
 
 app = Flask(__name__)
 
@@ -44,32 +49,76 @@ def save_tasks():
         print(f"[API] 保存任务状态失败: {e}")
 
 
-def run_command(cmd, cwd=None, env=None):
-    """执行命令并返回结果"""
+def run_command(cmd, cwd=None, env=None, timeout=None):
+    """执行命令并实时输出"""
     full_env = os.environ.copy()
     if env:
         full_env.update(env)
 
+    # 让子进程认为它在终端中运行（显示进度条）
+    full_env['PYTHONUNBUFFERED'] = '1'
+
     print(f"[CMD] 执行: {cmd}")
 
-    result = subprocess.run(
-        cmd,
-        shell=True,
-        capture_output=True,
-        text=True,
-        cwd=cwd or WORK_DIR,
-        env=full_env
-    )
+    try:
+        process = subprocess.Popen(
+            cmd,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            cwd=cwd or WORK_DIR,
+            env=full_env,
+            bufsize=1,  # 行缓冲
+        )
 
-    if result.returncode != 0:
-        print(f"[CMD] 错误: {result.stderr}")
+        stdout_lines = []
+        stderr_lines = []
 
-    return {
-        "returncode": result.returncode,
-        "stdout": result.stdout,
-        "stderr": result.stderr
-    }
+        # 实时读取输出
+        while True:
+            # 使用 select 同时监控 stdout 和 stderr
+            reads = [process.stdout, process.stderr]
+            readable, _, _ = select.select(reads, [], [], 0.1)
 
+            for stream in readable:
+                line = stream.readline()
+                if line:
+                    if stream == process.stdout:
+                        stdout_lines.append(line)
+                        print(f"[OUT] {line.rstrip()}")
+                    else:
+                        stderr_lines.append(line)
+                        # ffmpeg 进度信息在 stderr
+                        print(f"[ERR] {line.rstrip()}")
+
+            # 检查进程是否结束
+            if process.poll() is not None:
+                # 读取剩余输出
+                for line in process.stdout:
+                    stdout_lines.append(line)
+                    print(f"[OUT] {line.rstrip()}")
+                for line in process.stderr:
+                    stderr_lines.append(line)
+                    print(f"[ERR] {line.rstrip()}")
+                break
+
+        returncode = process.returncode
+        stdout = ''.join(stdout_lines)
+        stderr = ''.join(stderr_lines)
+
+        if returncode != 0:
+            print(f"[CMD] 命令失败，返回码: {returncode}")
+
+        return {
+            "returncode": returncode,
+            "stdout": stdout,
+            "stderr": stderr
+        }
+
+    except Exception as e:
+        print(f"[CMD] 异常: {e}")
+        return {"returncode": -1, "stdout": "", "stderr": str(e)}
 
 def update_task(task_id, **kwargs):
     """更新任务状态"""
