@@ -1,0 +1,6 @@
+FROM genfaceplus:0219
+RUN pip install flask
+RUN conda install -n pytorch -c conda-forge libiconv -y
+RUN conda run -n pytorch pip install soxr soundfile
+
+RUN conda run -n pytorch pip install "transformers==4.33.3"

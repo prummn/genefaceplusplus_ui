@@ -1,0 +1,217 @@
+/* =========================================
+   1. 触发按钮优化 (右上角)
+   ========================================= */
+.vg-help-button {
+    position: fixed;
+    top: 25px;       /*稍微往下挪一点，不要贴顶*/
+    right: 30px;
+    z-index: 999;
+    
+    /* 尺寸与排版 */
+    padding: 8px 18px;
+    font-size: 14px; /* 字体改小，精致化 */
+    font-family: 'Source Han Sans CN', "Microsoft YaHei", sans-serif;
+    font-weight: bold;
+    letter-spacing: 1px;
+    line-height: 1.5;
+    
+    /* 核心风格：深色玻璃 + 青色边框 */
+    background: rgba(0, 10, 20, 0.6);
+    color: #00ffff;  /* 荧光青文字 */
+    border: 1px solid #00ffff;
+    border-radius: 20px; /* 胶囊形状 */
+    
+    /* 光效 */
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
+    backdrop-filter: blur(4px);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.vg-help-button:hover {
+    background: #00ffff; /* 悬停变实心 */
+    color: #000000;      /* 文字变黑 */
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.6);
+    transform: translateY(-2px);
+}
+
+/* =========================================
+   2. 遮罩层 (Backdrop) - 增加模糊
+   ========================================= */
+.vg-modal-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    /* 背景压暗，但带一点深蓝倾向 */
+    background: rgba(2, 5, 10, 0.85);
+    backdrop-filter: blur(8px); /* 核心：背景高斯模糊 */
+    z-index: 1400;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.vg-modal-backdrop[hidden] { display: none; }
+.vg-modal-backdrop.show { display: flex; }
+
+/* =========================================
+   3. 弹窗卡片主体 (The Glass Card)
+   ========================================= */
+.vg-modal-content {
+    width: min(860px, calc(100% - 48px));
+    max-height: 86vh;
+    
+    /* 彻底重构背景：深蓝磨砂玻璃 */
+    background: linear-gradient(180deg, rgba(0, 30, 60, 0.9), rgba(0, 10, 20, 0.95));
+    border: 1px solid rgba(0, 255, 255, 0.3); /* 青色细边框 */
+    box-shadow: 0 0 40px rgba(0, 255, 255, 0.15), /* 外发光 */
+                inset 0 0 20px rgba(0, 255, 255, 0.05); /* 内发光 */
+                
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    padding-bottom: 84px;
+    overflow: hidden;
+    color: #fff; /* 全局文字变白 */
+}
+
+/* 装饰：顶部亮条 */
+.vg-modal-content::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #00ffff, transparent);
+}
+
+/* =========================================
+   4. 标题栏
+   ========================================= */
+.vg-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 24px;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.15); /* 分割线变淡青色 */
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.vg-modal-title {
+    font-size: 1.5rem;
+    margin: 0;
+    font-family: 'Orbitron', "Microsoft YaHei", sans-serif; /* 科幻字体 */
+    color: #00ffff; /* 标题青色 */
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.4);
+    letter-spacing: 1px;
+}
+
+/* =========================================
+   5. 关闭按钮
+   ========================================= */
+.vg-modal-close {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    background: transparent;
+    color: #00ffff;
+    font-size: 20px;
+    cursor: pointer;
+    transition: 0.3s;
+    display: flex; /* 居中X */
+    align-items: center;
+    justify-content: center;
+}
+
+.vg-modal-close:hover {
+    background: rgba(0, 255, 255, 0.2);
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+    transform: rotate(90deg); /* 趣味交互：旋转 */
+}
+
+/* =========================================
+   6. 内容区域 (Body)
+   ========================================= */
+.vg-modal-body {
+    padding: 24px 30px;
+    overflow-y: auto; /* 允许纵向滚动 */
+    
+    /* 字体设置 */
+    font-size: 1rem; /* 这里的字号调整为正常阅读大小，1.6rem太大了 */
+    line-height: 1.8;
+    color: #e0f7fa; /* 稍微偏冷白的文字，阅读舒适 */
+    
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0;
+    font-family: 'Source Han Sans CN', sans-serif;
+    background: transparent;
+}
+
+/* 滚动条美化 */
+.vg-modal-body::-webkit-scrollbar {
+    width: 8px;
+}
+.vg-modal-body::-webkit-scrollbar-thumb {
+    background: #005577;
+    border-radius: 4px;
+}
+.vg-modal-body::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.2);
+}
+
+/* =========================================
+   7. 底部按钮区域
+   ========================================= */
+.vg-modal-actions {
+    position: absolute;
+    right: 24px;
+    bottom: 20px;
+    display: flex;
+    gap: 15px;
+    padding: 0;
+    margin: 0;
+}
+
+.vg-btn {
+    border: none;
+    cursor: pointer;
+    border-radius: 4px; /* 稍微方一点 */
+    padding: 10px 24px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 1px;
+    font-family: 'Orbitron', sans-serif;
+}
+
+/* 主要按钮：渐变青蓝 */
+.vg-btn-primary {
+    background: linear-gradient(90deg, #0077ff, #00ffff);
+    color: #000; /* 深色文字对比 */
+    box-shadow: 0 4px 15px rgba(0, 119, 255, 0.3);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: 0.3s;
+    
+    /* 简单的切角效果 */
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+
+.vg-btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(0, 255, 255, 0.5);
+    filter: brightness(1.1);
+}
+
+/* =========================================
+   8. 移动端适配
+   ========================================= */
+@media (max-width: 520px) {
+    .vg-modal-body { font-size: 0.9rem; padding: 15px; }
+    .vg-modal-content { padding-bottom: 80px; }
+    .vg-modal-actions { left: 18px; right: 18px; bottom: 18px; justify-content: center; }
+    .vg-btn-primary { width: 100%; justify-content: center; }
+    .vg-help-button { top: 15px; right: 15px; font-size: 12px; }
+}
