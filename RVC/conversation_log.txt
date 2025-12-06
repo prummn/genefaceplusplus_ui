@@ -139,3 +139,36 @@ AI: 当然，很高兴再次向你介绍我自己！
 你: 你好，请介绍一下你自己。
 AI: 你好！我是一个乐于助人的对话助手。我可以回答问题、提供信息、参与讨论，并尽力帮助你解决各种问题。有什么我可以帮你的吗？
 
+【Sat Dec  6 17:42:14 2025 | Model: gemini-2.5-pro】
+你: The English topic of the merits is.没门儿进你全家去问你的话and architecture
+AI: Gemini API 错误: 400
+
+【Sat Dec  6 17:44:48 2025 | Model: glm-4.5-flash】
+你: The English topic of the merits is.没门儿进你全家去问你的话and architecture
+AI: 您好！看起来您想用英语讨论建筑学相关的话题。请问您具体想了解建筑学的哪些方面呢？比如建筑历史、建筑风格、著名建筑师或现代建筑趋势等？我很乐意用英语与您交流建筑学话题。
+
+【Sat Dec  6 19:12:09 2025 | Model: gemini-2.5-pro】
+你: 嗯咳。
+AI: 好的。为了方便我们开始，您可以先选择一个您感兴趣的具体切入点。
+
+我们可以用英语聊聊：
+
+*   **A specific architectural style?** (某个特定的建筑风格？) 比如：Gothic (哥特式), Baroque (巴洛克), Modernism (现代主义)?
+*   **A famous architect?** (一位著名的建筑师？) 比如：Frank Lloyd Wright (弗兰克·劳埃德·赖特), Zaha Hadid (扎哈·哈迪德)?
+*   **A famous building?** (一座著名的建筑？) 比如：The Sydney Opera House (悉尼歌剧院), The Burj Khalifa (哈利法塔)?
+*   **Or a general concept?** (或者一个笼统的概念？) 比如：Sustainable architecture (可持续建筑), The future of cities (城市的未来)?
+
+Please tell me which topic sounds most interesting to you, and we can start our conversation in English from there.
+
+【Sat Dec  6 20:00:05 2025 | Model: gemini-2.5-pro】
+你: 嗯哼。
+AI: Gemini API 错误: 400
+
+【Sat Dec  6 20:02:17 2025 | Model: gemini-2.5-pro】
+你: 嗯咳。
+AI: Gemini API 错误: 400
+
+【Sat Dec  6 20:12:33 2025 | Model: gemini-2.5-pro】
+你: N/A (ASR失败)
+AI: 抱歉，我没有听清您说什么。
+
