@@ -10,14 +10,15 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 # RVC 相关目录
 RVC_DIR = os.path.join(BASE_DIR, "RVC")
-RVC_IO_DIR = os.path.join(RVC_DIR, "io")
+# RVC_IO_DIR = os.path.join(RVC_DIR, "io")
+RVC_IO_DIR = os.path.join(BASE_DIR, "io")
 RVC_MODELS_DIR = os.path.join(RVC_DIR, "models_zh")
 # 历史记录文件
 HISTORY_FILE_PATH = os.path.join(RVC_DIR, "chat_history.json")
 
 # 输出目录
-STATIC_AUDIO_DIR = os.path.join(BASE_DIR, "static", "audios")
-os.makedirs(STATIC_AUDIO_DIR, exist_ok=True)
+AUDIO_DIR = os.path.join(BASE_DIR, "io", "output")
+os.makedirs(AUDIO_DIR, exist_ok=True)
 
 # 临时文件与脚本
 INTERMEDIATE_TEXT_FILE = os.path.join(RVC_DIR, "latest_ai_response.txt")
@@ -26,7 +27,7 @@ CHINA_PIPELINE_SCRIPT = os.path.join(RVC_DIR, "china_pipeline.py")
 INPUT_AUDIO_PATH = os.path.join(BASE_DIR, "SyncTalk", "audio", "aud.wav")
 
 FINAL_AUDIO_NAME = "cloned_output.wav"
-FINAL_AUDIO_PATH_SERVER = os.path.join(STATIC_AUDIO_DIR, FINAL_AUDIO_NAME)
+FINAL_AUDIO_PATH_SERVER = os.path.join(AUDIO_DIR, FINAL_AUDIO_NAME)
 FINAL_AUDIO_PATH_WEB = f"/static/audios/{FINAL_AUDIO_NAME}"
 
 PYTHON_EXECUTABLE = sys.executable 
@@ -159,13 +160,13 @@ def chat_response(data):
             docker_text_path = f"/io/input/{temp_text_name}"
             chunk_filename = f"chunk_{i}.wav"
             docker_out_path = f"/output/{chunk_filename}"
-            host_chunk_path = os.path.join(STATIC_AUDIO_DIR, chunk_filename)
+            host_chunk_path = os.path.join(AUDIO_DIR, chunk_filename)
 
             cmd_docker_rvc = [
                 "docker", "run", "--rm", "--gpus", "all",
                 "-v", f"{RVC_IO_DIR}:/io",
                 "-v", f"{RVC_MODELS_DIR}:/app/models_zh",
-                "-v", f"{STATIC_AUDIO_DIR}:/output",
+                "-v", f"{AUDIO_DIR}:/output",
                 "rvc-app", 
                 "--ref", docker_ref_path,
                 "--text-file", docker_text_path,
