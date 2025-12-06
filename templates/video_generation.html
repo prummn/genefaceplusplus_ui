@@ -6,6 +6,61 @@
     <title>视频生成</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/video_generation.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/instruction.css') }}">
+    <style>
+        /* GeneFace++ 专用样式 */
+        .geneface-options {
+            display: none;
+        }
+        .geneface-options.active {
+            display: block;
+        }
+        .audio-source-group {
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+        }
+        .upload-status {
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        .upload-status.success { color: #81c784; }
+        .upload-status.error { color: #e57373; }
+        .model-info {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+        }
+        .refresh-btn {
+            padding: 5px 10px;
+            margin-left: 10px;
+            cursor: pointer;
+        }
+        .generating-status {
+            padding: 15px;
+            background: #1a1a2e;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: none;
+        }
+        .generating-status.active {
+            display: block;
+        }
+        .generating-status .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #4fc3f7;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 
 <body class="subpage-bg">
@@ -14,7 +69,7 @@
         ← 返回
     </button>
 
-     <button class="vg-help-button" id="vg_openHelpBtn" aria-haspopup="dialog" aria-controls="vg_helpModal">参数说明</button>
+    <button class="vg-help-button" id="vg_openHelpBtn" aria-haspopup="dialog" aria-controls="vg_helpModal">参数说明</button>
 
     <div class="page-container">
         <h2>视频生成</h2>
@@ -23,63 +78,129 @@
             <!-- 左侧：预览/生成视频区域 -->
             <div class="video-display">
                 <video id="previewVideo" controls width="420">
-                    <source src="{{ url_for('static', filename='videos/sample.mp4') }}" type="video/mp4">
+                    <source id="videoSource" src="{{ url_for('static', filename=default_video) }}" type="video/mp4">
                 </video>
+
+                <!-- 生成状态 -->
+                <div id="generatingStatus" class="generating-status">
+                    <span class="spinner"></span>
+                    <span id="statusText">正在生成视频...</span>
+                </div>
             </div>
 
             <!-- 右边输入表单 -->
-        <div class="form-section">
-            <form id="videoForm">
-                <div class="form-group">
-                    <label>模型名称</label>
-                    <select name="model_name">
-                        <option value="model1">Model 1</option>
-                        <option value="model2">Model 2</option>
-                        <option value="SyncTalk">SyncTalk</option>
-                    </select>
-                </div>
+            <div class="form-section">
+                <form id="videoForm">
+                    <div class="form-group">
+                        <label>模型名称</label>
+                        <select name="model_name" id="model_name" onchange="toggleModelOptions()">
+                            <option value="SyncTalk">SyncTalk</option>
+                            <option value="GeneFace++">GeneFace++</option>
+                        </select>
+                    </div>
 
-                <div class="form-group">
-                    <label>模型目录地址</label>
-                    <input type="text" name="model_param" placeholder="请输入模型目录路径">
-                </div>
+                    <!-- SyncTalk 选项 -->
+                    <div id="synctalk_options">
+                        <div class="form-group">
+                            <label>模型目录地址</label>
+                            <input type="text" name="model_param" placeholder="请输入模型目录路径">
+                        </div>
 
-                <div class="form-group">
-                    <label>参考音频地址</label>
-                    <input type="text" name="ref_audio" placeholder="请输入音频路径">
-                </div>
-                
-                <div class="form-group">
-                    <label>GPU选择</label>
-                    <select name="gpu_choice">
-                        <option value="GPU0">GPU 0</option>
-                        <option value="GPU1">GPU 1</option>
-                    </select>
-                </div>
+                        <div class="form-group">
+                            <label>参考音频地址</label>
+                            <input type="text" name="ref_audio" placeholder="请输入音频路径">
+                        </div>
 
-                <div class="form-group">
-                    <label>目标文字（文本框）</label>
-                    <textarea name="target_text" placeholder="留空则直接使用参考音频"></textarea>
-                </div>
-                <div class="form-beam-particle"></div> 
-                <form>
-                    <button type="submit" class="generate-btn">生成视频</button>
+                        <div class="form-group">
+                            <label>目标文字（文本框）</label>
+                            <textarea name="target_text" placeholder="留空则直接使用参考音频"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- GeneFace++ 选项 -->
+                    <div id="geneface_options" class="geneface-options">
+                        <!-- 服务状态 -->
+                        <div class="form-group">
+                            <span id="gf_service_status" style="font-size: 12px;">检查服务中...</span>
+                        </div>
+
+                        <!-- 模型选择区域 (已修改) -->
+                        <div class="form-group">
+                            <label>选择角色 (Video ID)
+                                <button type="button" class="refresh-btn" onclick="refreshModels()">🔄 刷新</button>
+                            </label>
+                            <select id="gf_video_id_select" onchange="onVideoIdSelected()">
+                                <option value="">-- 请选择 --</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>头部模型 (Head Checkpoint)</label>
+                            <select name="gf_head_ckpt" id="gf_head_ckpt_select">
+                                <option value="">-- 先选择角色 --</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>身体模型 (Torso Checkpoint)</label>
+                            <select name="gf_torso_ckpt" id="gf_torso_ckpt_select">
+                                <option value="">-- 先选择角色 --</option>
+                            </select>
+                        </div>
+
+                        <!-- 音频来源 -->
+                        <div class="form-group">
+                            <label>音频来源</label>
+                            <select id="audio_source" onchange="toggleAudioSource()">
+                                <option value="existing">选择已有音频</option>
+                                <option value="upload">上传新音频</option>
+                            </select>
+                        </div>
+
+                        <!-- 已有音频选择 -->
+                        <div class="audio-source-group" id="existing_audio_group">
+                            <label>选择音频
+                                <button type="button" class="refresh-btn" onclick="refreshAudios()">🔄</button>
+                            </label>
+                            <select name="gf_audio" id="gf_audio_select">
+                                <option value="">-- 请选择 --</option>
+                            </select>
+                        </div>
+
+                        <!-- 上传音频 -->
+                        <div class="audio-source-group" id="upload_audio_group" style="display: none;">
+                            <label>上传音频文件 (WAV/MP3)</label>
+                            <input type="file" id="audio_file" accept=".wav,.mp3,.m4a">
+                            <input type="text" id="audio_name" placeholder="音频名称（可选）" style="margin-top: 5px;">
+                            <button type="button" onclick="uploadAudio()" style="margin-top: 5px;">上传</button>
+                            <div id="audio_upload_status" class="upload-status"></div>
+                        </div>
+
+                        <input type="hidden" name="gf_audio_path" id="gf_audio_path">
+                    </div>
+
+                    <div class="form-group">
+                        <label>GPU选择</label>
+                        <select name="gpu_choice">
+                            <option value="GPU0">GPU 0</option>
+                            <option value="GPU1">GPU 1</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="generate-btn" id="submitBtn">生成视频</button>
                 </form>
-                
-            </form>
-        </div>
+            </div>
         </div>
     </div>
 
+    <!-- Help Modal Omitted for Brevity, same as before -->
     <div class="vg-modal-backdrop" id="vg_helpModal" role="dialog" aria-modal="true" aria-labelledby="vg_helpTitle" tabindex="-1" hidden>
         <div class="vg-modal-content" role="document">
             <div class="vg-modal-header">
                 <h2 class="vg-modal-title" id="vg_helpTitle">参数说明</h2>
                 <button class="vg-modal-close" id="vg_closeHelpBtn" aria-label="关闭">✕</button>
             </div>
-
             <pre id="vg_helpBody" class="vg-modal-body" tabindex="0" data-src="{{ url_for('static', filename='text/video_generation.txt') }}"></pre>
-
             <div class="vg-modal-actions" aria-hidden="false">
                 <button class="vg-btn vg-btn-primary" id="vg_playTutorialBtn" type="button"
                         data-video="{{ url_for('static', filename='videos/tutorial.mp4') }}">
@@ -89,7 +210,272 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/video_generation.js') }}"></script>
+    <script>
+    // ==================== GeneFace++ 功能 ====================
+
+    let genefaceModels = {};
+
+    function toggleModelOptions() {
+        const choice = document.getElementById('model_name').value;
+        const synctalkOpts = document.getElementById('synctalk_options');
+        const genefaceOpts = document.getElementById('geneface_options');
+
+        if (choice === 'GeneFace++') {
+            synctalkOpts.style.display = 'none';
+            genefaceOpts.classList.add('active');
+            checkGenefaceHealth();
+            refreshModels();
+            refreshAudios();
+        } else {
+            synctalkOpts.style.display = 'block';
+            genefaceOpts.classList.remove('active');
+        }
+    }
+
+    function checkGenefaceHealth() {
+        fetch('/geneface/health')
+            .then(r => r.json())
+            .then(data => {
+                const el = document.getElementById('gf_service_status');
+                if (data.status === 'ok') {
+                    el.innerHTML = '✓ GeneFace++ 服务正常';
+                    el.style.color = '#81c784';
+                } else {
+                    el.innerHTML = '✗ ' + data.message;
+                    el.style.color = '#e57373';
+                }
+            })
+            .catch(() => {
+                const el = document.getElementById('gf_service_status');
+                el.innerHTML = '✗ 无法连接服务';
+                el.style.color = '#e57373';
+            });
+    }
+
+    function refreshModels() {
+        const videoSelect = document.getElementById('gf_video_id_select');
+        videoSelect.innerHTML = '<option value="">-- 加载中 --</option>';
+
+        fetch('/geneface/models')
+            .then(r => r.json())
+            .then(models => {
+                genefaceModels = {}; // 重置
+                videoSelect.innerHTML = '<option value="">-- 请选择角色 --</option>';
+
+                if (Array.isArray(models)) {
+                    models.forEach(m => {
+                        genefaceModels[m.video_id] = m;
+                        const opt = document.createElement('option');
+                        opt.value = m.video_id;
+                        opt.textContent = m.video_id;
+                        videoSelect.appendChild(opt);
+                    });
+                }
+            })
+            .catch(e => {
+                videoSelect.innerHTML = '<option value="">-- 加载失败 --</option>';
+            });
+    }
+
+    function onVideoIdSelected() {
+        const videoId = document.getElementById('gf_video_id_select').value;
+        const headSelect = document.getElementById('gf_head_ckpt_select');
+        const torsoSelect = document.getElementById('gf_torso_ckpt_select');
+
+        headSelect.innerHTML = '';
+        torsoSelect.innerHTML = '';
+
+        if (videoId && genefaceModels[videoId]) {
+            const data = genefaceModels[videoId];
+
+            // 填充头部模型
+            if (data.head_checkpoints && data.head_checkpoints.length > 0) {
+                data.head_checkpoints.forEach(path => {
+                    const opt = document.createElement('option');
+                    opt.value = path;
+                    opt.textContent = path.split('/').pop(); // 只显示文件名
+                    headSelect.appendChild(opt);
+                });
+                // 默认选第一个（最新的）
+                headSelect.selectedIndex = 0;
+            } else {
+                const opt = document.createElement('option');
+                opt.value = "";
+                opt.textContent = "无可用头部模型";
+                headSelect.appendChild(opt);
+            }
+
+            // 填充身体模型
+            if (data.torso_checkpoints && data.torso_checkpoints.length > 0) {
+                data.torso_checkpoints.forEach(path => {
+                    const opt = document.createElement('option');
+                    opt.value = path;
+                    opt.textContent = path.split('/').pop(); // 只显示文件名
+                    torsoSelect.appendChild(opt);
+                });
+                // 默认选第一个（最新的）
+                torsoSelect.selectedIndex = 0;
+            } else {
+                const opt = document.createElement('option');
+                opt.value = "";
+                opt.textContent = "无可用身体模型";
+                torsoSelect.appendChild(opt);
+            }
+
+        } else {
+            headSelect.innerHTML = '<option value="">-- 先选择角色 --</option>';
+            torsoSelect.innerHTML = '<option value="">-- 先选择角色 --</option>';
+        }
+    }
+
+    function refreshAudios() {
+        const select = document.getElementById('gf_audio_select');
+        select.innerHTML = '<option value="">-- 加载中 --</option>';
+
+        fetch('/geneface/audios')
+            .then(r => r.json())
+            .then(audios => {
+                select.innerHTML = '<option value="">-- 请选择 --</option>';
+                if (Array.isArray(audios)) {
+                    audios.forEach(a => {
+                        const opt = document.createElement('option');
+                        opt.value = a.path;
+                        opt.textContent = `${a.name} (${a.duration || '?'}s)`;
+                        select.appendChild(opt);
+                    });
+                }
+            })
+            .catch(e => {
+                select.innerHTML = '<option value="">-- 加载失败 --</option>';
+            });
+    }
+
+    function toggleAudioSource() {
+        const source = document.getElementById('audio_source').value;
+        document.getElementById('existing_audio_group').style.display = source === 'existing' ? 'block' : 'none';
+        document.getElementById('upload_audio_group').style.display = source === 'upload' ? 'block' : 'none';
+    }
+
+    function uploadAudio() {
+        const fileInput = document.getElementById('audio_file');
+        const audioName = document.getElementById('audio_name').value;
+        const statusEl = document.getElementById('audio_upload_status');
+
+        if (!fileInput.files[0]) {
+            statusEl.textContent = '请选择音频文件';
+            statusEl.className = 'upload-status error';
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('audio', fileInput.files[0]);
+        if (audioName) {
+            formData.append('audio_name', audioName);
+        }
+
+        statusEl.textContent = '上传中...';
+        statusEl.className = 'upload-status';
+
+        fetch('/geneface/upload_audio', {
+            method: 'POST',
+            body: formData
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                statusEl.textContent = '✓ 上传成功: ' + data.audio_name;
+                statusEl.className = 'upload-status success';
+
+                // 切换到已有音频并刷新列表
+                document.getElementById('audio_source').value = 'existing';
+                toggleAudioSource();
+                refreshAudios();
+
+                // 选择刚上传的音频
+                setTimeout(() => {
+                    document.getElementById('gf_audio_select').value = data.audio_path;
+                }, 500);
+            } else {
+                statusEl.textContent = '✗ ' + data.message;
+                statusEl.className = 'upload-status error';
+            }
+        })
+        .catch(e => {
+            statusEl.textContent = '✗ 上传失败: ' + e.message;
+            statusEl.className = 'upload-status error';
+        });
+    }
+
+    // ==================== 表单提交 ====================
+
+    document.getElementById('videoForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const modelName = document.getElementById('model_name').value;
+        const formData = new FormData(this);
+
+        if (modelName === 'GeneFace++') {
+            // 验证 GeneFace++ 参数
+            const headCkpt = document.getElementById('gf_head_ckpt_select').value;
+            const torsoCkpt = document.getElementById('gf_torso_ckpt_select').value;
+
+            if (!headCkpt || !torsoCkpt) {
+                alert('请先选择完整的模型（角色 + 头部 + 身体）');
+                return;
+            }
+
+            // 手动添加到 formData (以防 select name 属性不被自动识别或为了安全起见)
+            // 注意：如果 HTML 中 select 已经有了 name="gf_head_ckpt"，这里其实是多余的，
+            // 但是为了保证逻辑清晰，保持原样
+
+            // 获取音频路径
+            let audioPath = '';
+            const audioSource = document.getElementById('audio_source').value;
+            if (audioSource === 'existing') {
+                audioPath = document.getElementById('gf_audio_select').value;
+            }
+
+            if (!audioPath) {
+                alert('请选择音频');
+                return;
+            }
+
+            formData.set('gf_audio_path', audioPath);
+        }
+
+        // 显示生成状态
+        document.getElementById('generatingStatus').classList.add('active');
+        document.getElementById('statusText').textContent = '正在生成视频...';
+        document.getElementById('submitBtn').disabled = true;
+
+        fetch('/video_generation', {
+            method: 'POST',
+            body: formData
+        })
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('generatingStatus').classList.remove('active');
+            document.getElementById('submitBtn').disabled = false;
+
+            if (data.status === 'success' && data.video_path) {
+                // 更新视频播放器
+                const videoEl = document.getElementById('previewVideo');
+                const sourceEl = document.getElementById('videoSource');
+                sourceEl.src = '/' + data.video_path + '?t=' + Date.now();
+                videoEl.load();
+                videoEl.play();
+            } else {
+                alert('生成失败: ' + (data.message || '未知错误'));
+            }
+        })
+        .catch(e => {
+            document.getElementById('generatingStatus').classList.remove('active');
+            document.getElementById('submitBtn').disabled = false;
+            alert('请求失败: ' + e.message);
+        });
+    });
+    </script>
+
     <script src="{{ url_for('static', filename='js/instruction.js') }}"></script>
 
 </body>

@@ -241,17 +241,22 @@
 
                         <div class="form-group">
                             <label>头部训练步数</label>
-                            <input type="number" name="max_updates_head" value="40000" min="1000" step="1000">
+                            <input type="number" name="max_updates_head" value="250000" min="1000" step="1000">
                         </div>
 
                         <div class="form-group">
                             <label>身体训练步数</label>
-                            <input type="number" name="max_updates_torso" value="40000" min="1000" step="1000">
+                            <input type="number" name="max_updates_torso" value="250000" min="1000" step="1000">
                         </div>
 
                         <div class="form-group" id="head_ckpt_group" style="display: none;">
-                            <label>Head Checkpoint</label>
-                            <input type="text" name="head_ckpt" id="head_ckpt" placeholder="自动填充">
+                            <label>Head Checkpoint (用于身体训练)</label>
+                            <select name="head_ckpt" id="head_ckpt_select">
+                                <option value="">-- 请先选择视频 --</option>
+                            </select>
+                            <div style="font-size: 12px; color: #888; margin-top: 4px;">
+                                * 将自动加载对应视频 ID 下的头部模型
+                            </div>
                         </div>
                     </div>
 
@@ -276,15 +281,72 @@
     <script>
     let pollInterval = null;
     let lastStep = '';
+    let genefaceModels = []; // 缓存模型列表
+
+    function fetchModelsForTraining() {
+        // 获取所有模型信息，用于填充 Head Checkpoint 下拉框
+        return fetch('/geneface/models')
+            .then(r => r.json())
+            .then(models => {
+                genefaceModels = models;
+                return models;
+            })
+            .catch(err => {
+                console.error('获取模型列表失败', err);
+                genefaceModels = [];
+            });
+    }
 
     function onVideoSelected() {
         const videoId = document.getElementById('video_select').value;
         const videoEl = document.getElementById('trainVideo');
         const sourceEl = document.getElementById('videoSource');
+
         if (videoId) {
             sourceEl.src = `/geneface/video/${videoId}`;
             videoEl.load();
             addLog(`已选择视频: ${videoId}`, 'info');
+
+            // 尝试更新 Head Checkpoint 下拉框
+            updateHeadCkptSelect(videoId);
+        }
+    }
+
+    function updateHeadCkptSelect(videoId) {
+        const select = document.getElementById('head_ckpt_select');
+        select.innerHTML = '<option value="">-- 正在查找 --</option>';
+
+        // 如果缓存为空，先获取一次
+        if (genefaceModels.length === 0) {
+            fetchModelsForTraining().then(() => {
+                populateHeadCkptSelect(videoId);
+            });
+        } else {
+            populateHeadCkptSelect(videoId);
+        }
+    }
+
+    function populateHeadCkptSelect(videoId) {
+        const select = document.getElementById('head_ckpt_select');
+        select.innerHTML = '';
+
+        // 查找匹配 videoId 的模型组
+        const modelGroup = genefaceModels.find(m => m.video_id === videoId);
+
+        if (modelGroup && modelGroup.head_checkpoints && modelGroup.head_checkpoints.length > 0) {
+            modelGroup.head_checkpoints.forEach(path => {
+                const opt = document.createElement('option');
+                opt.value = path;
+                opt.textContent = path.split('/').pop(); // 只显示文件名
+                select.appendChild(opt);
+            });
+            // 默认选中最新的
+            select.selectedIndex = 0;
+        } else {
+            const opt = document.createElement('option');
+            opt.value = "";
+            opt.textContent = "未找到头部模型文件";
+            select.appendChild(opt);
         }
     }
 
@@ -296,6 +358,7 @@
         if (choice === 'GeneFace++') {
             checkGenefaceHealth();
             refreshVideoList();
+            fetchModelsForTraining(); // 预加载模型列表
         }
     }
 
@@ -306,8 +369,16 @@
     }
 
     function onTrainStageChange() {
-        document.getElementById('head_ckpt_group').style.display =
-            document.getElementById('train_stage').value === 'torso' ? 'block' : 'none';
+        const stage = document.getElementById('train_stage').value;
+        document.getElementById('head_ckpt_group').style.display = stage === 'torso' ? 'block' : 'none';
+
+        // 如果切换到 torso 并且已经选了视频，刷新一下下拉框
+        if (stage === 'torso') {
+            const videoId = document.getElementById('video_select').value;
+            if (videoId) {
+                updateHeadCkptSelect(videoId);
+            }
+        }
     }
 
     function addLog(msg, type = 'info') {
@@ -409,7 +480,8 @@
         fill.style.width = pct + '%';
         fill.textContent = pct + '%';
 
-        if (data.head_ckpt) document.getElementById('head_ckpt').value = data.head_ckpt;
+        // 以前这里是自动填充 input，现在不需要了，因为我们改成了 select
+        // if (data.head_ckpt) document.getElementById('head_ckpt').value = data.head_ckpt;
     }
 
     function pollTaskStatus(taskId) {
@@ -429,6 +501,11 @@
                     clearInterval(pollInterval);
                     document.getElementById('submitBtn').disabled = false;
                     document.getElementById('submitBtn').textContent = '开始训练';
+
+                    // 如果是 Head 训练完成，刷新一下模型列表以便下次选择
+                    if (data.type === 'head_training' && data.status === 'completed') {
+                         fetchModelsForTraining();
+                    }
                 }
             });
         };
@@ -437,54 +514,82 @@
     }
 
     document.getElementById('trainForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const formData = new FormData(this);
+    e.preventDefault();
+    const formData = new FormData(this);
 
-        if (formData.get('model_choice') === 'GeneFace++') {
-            const videoId = document.getElementById('video_select').value;
-            if (!videoId) { alert('请选择视频'); return; }
-            formData.set('video_id', videoId);
+    if (formData.get('model_choice') === 'GeneFace++') {
+        const videoId = document.getElementById('video_select').value;
+        if (!videoId) {
+            alert('请选择视频');
+            return;
         }
+        formData.set('video_id', videoId);
 
-        clearLogs();
-        addLog('提交任务...', 'info');
-        document.getElementById('submitBtn').disabled = true;
-        document.getElementById('submitBtn').textContent = '处理中...';
-        document.getElementById('progressFill').classList.remove('error');
+        // 获取 head_ckpt（如果是 torso 训练）
+        const trainStage = formData.get('train_stage');
+        const headCkpt = document.getElementById('head_ckpt_select').value;
 
-        fetch('/model_training', { method: 'POST', body: formData })
-            .then(r => {
-                if (!r.headers.get('content-type')?.includes('application/json')) {
-                    throw new Error('服务器响应错误');
-                }
-                return r.json();
-            })
-            .then(data => {
-                if (data.task_id) {
-                    addLog(`任务创建: ${data.task_id}`, 'success');
-                    pollTaskStatus(data.task_id);
-                } else if (data.status === 'error') {
-                    addLog('错误: ' + data.message, 'error');
-                    document.getElementById('submitBtn').disabled = false;
-                    document.getElementById('submitBtn').textContent = '开始训练';
-                } else {
-                    addLog('完成', 'success');
-                    document.getElementById('submitBtn').disabled = false;
-                    document.getElementById('submitBtn').textContent = '开始训练';
-                }
-            })
-            .catch(e => {
-                addLog('请求失败: ' + e.message, 'error');
+        if (trainStage === 'torso') {
+            if (!headCkpt) {
+                alert('请选择 Head Checkpoint');
+                return;
+            }
+            formData.set('head_ckpt', headCkpt);
+        }
+    }
+
+    clearLogs();
+    addLog('提交任务...', 'info');
+
+    // 打印发送的数据（调试用）
+    for (let [key, value] of formData.entries()) {
+        addLog(`参数: ${key} = ${value}`, 'info');
+    }
+
+    document.getElementById('submitBtn').disabled = true;
+    document.getElementById('submitBtn').textContent = '处理中...';
+    document.getElementById('progressFill').classList.remove('error');
+
+    fetch('/model_training', { method: 'POST', body: formData })
+        .then(r => {
+            addLog(`响应状态: ${r.status}`, 'info');
+            if (!r.ok) {
+                return r.text().then(text => {
+                    throw new Error(`HTTP ${r.status}: ${text}`);
+                });
+            }
+            const contentType = r.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                return r.text().then(text => {
+                    throw new Error(`非 JSON 响应: ${text.substring(0, 200)}`);
+                });
+            }
+            return r.json();
+        })
+        .then(data => {
+            addLog(`响应数据: ${JSON.stringify(data)}`, 'info');
+
+            if (data.task_id) {
+                addLog(`任务创建: ${data.task_id}`, 'success');
+                pollTaskStatus(data.task_id);
+            } else if (data.status === 'error') {
+                addLog('错误: ' + data.message, 'error');
                 document.getElementById('submitBtn').disabled = false;
                 document.getElementById('submitBtn').textContent = '开始训练';
-            });
+            } else if (data.status === 'success') {
+                addLog('完成', 'success');
+                document.getElementById('submitBtn').disabled = false;
+                document.getElementById('submitBtn').textContent = '开始训练';
+            }
+        })
+        .catch(e => {
+            addLog('请求失败: ' + e.message, 'error');
+            document.getElementById('submitBtn').disabled = false;
+            document.getElementById('submitBtn').textContent = '开始训练';
+        });
     });
-
-    document.getElementById('logContainer').classList.add('active');
-    addLog('页面就绪', 'info');
     </script>
 
-{#    <script src="{{ url_for('static', filename='js/model_training.js') }}"></script>#}
     <script src="{{ url_for('static', filename='js/instruction.js') }}"></script>
 </body>
 </html>
