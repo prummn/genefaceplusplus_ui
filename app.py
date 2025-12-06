@@ -18,32 +18,45 @@ from werkzeug.utils import secure_filename
 from flask import send_file
 import re
 
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(__name__)
+
 
 # 首页
 @app.route('/')
 def index():
     return render_template('index.html')
 
+
 # 视频生成界面
 @app.route('/video_generation', methods=['GET', 'POST'])
 def video_generation():
     if request.method == 'POST':
+        # 修改这里：添加 GeneFace++ 专用的参数提取
         data = {
             "model_name": request.form.get('model_name'),
             "model_param": request.form.get('model_param'),
             "ref_audio": request.form.get('ref_audio'),
             "gpu_choice": request.form.get('gpu_choice'),
             "target_text": request.form.get('target_text'),
+            # 新增以下三行，确保参数能传给 backend
+            "gf_head_ckpt": request.form.get('gf_head_ckpt'),
+            "gf_torso_ckpt": request.form.get('gf_torso_ckpt'),
+            "gf_audio_path": request.form.get('gf_audio_path'),
         }
 
         video_path = generate_video(data)
         return jsonify({'status': 'success', 'video_path': video_path})
+    default_video = 'videos/sample.mp4'
 
-    return render_template('video_generation.html')
+    # 检查是否有最新的 GeneFace 生成结果
+    latest_video_path = os.path.join('static', 'videos', 'geneface_latest.mp4')
+    if os.path.exists(os.path.join(BASE_DIR, latest_video_path)):
+        default_video = 'videos/geneface_latest.mp4'
+
+    return render_template('video_generation.html', default_video=default_video)
+
 
 
 # 模型训练界面
@@ -76,6 +89,7 @@ def model_training():
 
     return render_template('model_training.html')
 
+
 # 实时对话系统界面
 @app.route('/chat_system', methods=['GET', 'POST'])
 def chat_system():
@@ -93,6 +107,7 @@ def chat_system():
         return jsonify({'status': 'success', 'video_path': video_path})
 
     return render_template('chat_system.html')
+
 
 @app.route('/save_audio', methods=['POST'])
 def save_audio():
@@ -122,16 +137,16 @@ def save_audio():
         print(f"[app.py] 收到原始音频。正在从 {raw_file_path} 加载...")
         # 加载文件 (pydub 会自动检测格式, 无论是 ogg, webm, 还是无头的 wav)
         audio = AudioSegment.from_file(raw_file_path)
-        
+
         print(f"[app.py] 正在重新导出为标准 WAV: {final_wav_path}")
-        
+
         # 重新导出为标准的、带头的 WAV 文件
         # 这时你可以强制设置参数，以确保 ASR 兼容：
         # audio.set_channels(1) 设为单声道
         # audio.set_frame_rate(16000) 设为 16kHz
-        
+
         audio.export(final_wav_path, format="wav")
-        
+
         print(f"[app.py] 音频保存并修复成功。")
 
     except Exception as e:
@@ -147,13 +162,14 @@ def save_audio():
                 os.remove(raw_file_path)
         except Exception as e:
             print(f"[app.py] 清理临时文件 {raw_file_path} 失败: {e}")
-            pass # 即使清理失败也不是大问题
+            pass  # 即使清理失败也不是大问题
 
     # --- 修复流程结束 ---
 
     # 5. 返回成功信息
     web_path = '/SyncTalk/audio/aud.wav'
     return jsonify({'status': 'success', 'message': '音频保存并修复成功', 'file_path': web_path})
+
 
 @app.route('/clear_history', methods=['POST'])
 def clear_history():
@@ -162,6 +178,7 @@ def clear_history():
         return jsonify({'status': 'success', 'message': msg})
     else:
         return jsonify({'status': 'error', 'message': msg})
+
 
 # GeneFace++ 状态查询路由
 @app.route('/geneface/health', methods=['GET'])
@@ -240,6 +257,70 @@ def geneface_video_file(video_id):
         return send_file(video_path, mimetype='video/mp4')
     else:
         return jsonify({"error": "视频不存在"}), 404
+
+
+# app.py 中添加以下路由
+
+@app.route('/geneface/audios', methods=['GET'])
+def geneface_audios():
+    """列出可用音频"""
+    return jsonify(geneface_api_call("/audios"))
+
+
+@app.route('/geneface/upload_audio', methods=['POST'])
+def geneface_upload_audio():
+    """上传音频到 GeneFace++"""
+    if 'audio' not in request.files:
+        return jsonify({"status": "error", "message": "没有音频文件"}), 400
+
+    audio_file = request.files['audio']
+    audio_name = request.form.get('audio_name')
+
+    if not audio_name:
+        audio_name = os.path.splitext(secure_filename(audio_file.filename))[0]
+
+    # 清理名称
+    audio_name = re.sub(r'[^a-zA-Z0-9_-]', '_', audio_name)
+
+    # 保存到 GeneFace 目录
+    audio_dir = os.path.join(BASE_DIR, "GeneFace", "data", "raw", "val_wavs")
+    os.makedirs(audio_dir, exist_ok=True)
+
+    ext = os.path.splitext(audio_file.filename)[1].lower()
+    if ext not in ['.wav', '.mp3', '.m4a']:
+        ext = '.wav'
+
+    save_path = os.path.join(audio_dir, f"{audio_name}{ext}")
+    audio_file.save(save_path)
+
+    rel_path = f"data/raw/val_wavs/{audio_name}{ext}"
+
+    return jsonify({
+        "status": "success",
+        "audio_name": f"{audio_name}{ext}",
+        "audio_path": rel_path
+    })
+
+
+@app.route('/geneface/infer', methods=['POST'])
+def geneface_infer():
+    """GeneFace++ 推理"""
+    data = request.json
+    return jsonify(geneface_api_call("/infer", "POST", data))
+
+
+@app.route('/geneface/output/<path:filename>')
+def geneface_output_file(filename):
+    """提供 GeneFace 输出视频文件访问"""
+    # 清理路径防止遍历攻击
+    filename = secure_filename(filename)
+    video_path = os.path.join(BASE_DIR, "GeneFace", "infer_out", filename)
+
+    if os.path.exists(video_path):
+        return send_file(video_path, mimetype='video/mp4')
+    else:
+        return jsonify({"error": "视频不存在"}), 404
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', debug=True, port=5000)

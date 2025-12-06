@@ -84,13 +84,20 @@ def geneface_upload_video(local_path, video_id):
 def geneface_api_call(endpoint, method="GET", data=None):
     """调用 GeneFace++ API"""
     url = f"{GENEFACE_API_URL}{endpoint}"
+    print(f"[GeneFace API] {method} {url}")
+    if data:
+        print(f"[GeneFace API] 数据: {data}")
+
     try:
         if method == "GET":
             r = requests.get(url, timeout=30)
         else:
             r = requests.post(url, json=data, timeout=30)
-        return r.json()
+        result = r.json()
+        print(f"[GeneFace API] 响应: {result}")
+        return result
     except Exception as e:
+        print(f"[GeneFace API] 错误: {e}")
         return {"status": "error", "message": str(e)}
 
 
@@ -110,22 +117,22 @@ def train_geneface(data):
     if not geneface_health():
         return {
             "status": "error",
-            "message": "GeneFace++ 服务不可用，请运行: ./start_geneface.sh"
+            "message": "GeneFace++ 服务不可用，请运行: ./start_geneface.bat"
         }
 
     video_path = data.get('ref_video')
     video_id = data.get('video_id')
-    gpu_id = data.get('gpu_choice', '0').replace('GPU', '')
+    gpu_id = data.get('gpu_choice', 'GPU0').replace('GPU', '')
     train_stage = data.get('train_stage', 'preprocess')
     task_id = data.get('task_id')
-    head_ckpt = data.get('head_ckpt')
-    max_updates_head = int(data.get('max_updates_head', 40000))
-    max_updates_torso = int(data.get('max_updates_torso', 40000))
+    head_ckpt = data.get('head_ckpt', '').strip()  # 获取并清理空格
+    max_updates_head = int(data.get('max_updates_head', 250000))
+    max_updates_torso = int(data.get('max_updates_torso', 250000))
 
     if not video_id and video_path:
         video_id = os.path.splitext(os.path.basename(video_path))[0]
 
-    print(f"[GeneFace] video_id={video_id}, stage={train_stage}, gpu={gpu_id}")
+    print(f"[GeneFace] video_id={video_id}, stage={train_stage}, gpu={gpu_id}, head_ckpt={head_ckpt}")
 
     # 查询任务状态
     if train_stage == "status":
@@ -167,12 +174,18 @@ def train_geneface(data):
 
     # 身体训练
     if train_stage == "torso":
-        if not head_ckpt:
-            head_ckpt = f"checkpoints/{video_id}/lm3d_radnerf"
-        return geneface_api_call("/train/torso", "POST", {
+        payload = {
             "video_id": video_id,
-            "head_ckpt": head_ckpt,
             "gpu_id": gpu_id
-        })
+        }
+
+        # 只有当用户提供了 head_ckpt 时才传递，否则让 api_server 使用默认值
+        if head_ckpt:
+            payload["head_ckpt"] = head_ckpt
+            print(f"[GeneFace] 使用用户指定的 head_ckpt: {head_ckpt}")
+        else:
+            print(f"[GeneFace] 未指定 head_ckpt，将由 API 服务器使用默认值")
+
+        return geneface_api_call("/train/torso", "POST", payload)
 
     return {"status": "error", "message": f"未知阶段: {train_stage}"}
