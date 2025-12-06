@@ -1,6 +1,7 @@
 import os
 import sys
 import subprocess
+import time  # 【新增】引入 time 模块用于计时
 from datetime import datetime
 import re
 from pydub import AudioSegment
@@ -10,8 +11,8 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 # RVC 相关目录
 RVC_DIR = os.path.join(BASE_DIR, "RVC")
-# RVC_IO_DIR = os.path.join(RVC_DIR, "io")
-RVC_IO_DIR = os.path.join(BASE_DIR, "io")
+# 注意：这里使用的是您最新提供的 io 路径逻辑
+RVC_IO_DIR = os.path.join(BASE_DIR, "io") 
 RVC_MODELS_DIR = os.path.join(RVC_DIR, "models_zh")
 # 历史记录文件
 HISTORY_FILE_PATH = os.path.join(RVC_DIR, "chat_history.json")
@@ -32,7 +33,7 @@ FINAL_AUDIO_PATH_WEB = f"/static/audios/{FINAL_AUDIO_NAME}"
 
 PYTHON_EXECUTABLE = sys.executable 
 
-def simple_splitter(text, max_len=50):
+def simple_splitter(text, max_len=45):
     """简单文本切分器"""
     print(f"[Splitter] 正在切分总长 {len(text)} 的文本...")
     segments = re.findall(r"([^。！？，、,!?]+[。！？，、,!?]?)", text, re.UNICODE)
@@ -109,10 +110,9 @@ def chat_response(data):
         ]
         
         # 运行管线
-        # 修改: 将执行结果赋值给变量，以便后续解析 stdout
         pipeline_result = subprocess.run(cmd_pipeline, check=True, cwd=RVC_DIR, capture_output=True, text=True, encoding='gbk')
 
-        # 【新增】打印子进程的完整输出，以便在控制台看到详细的 Gemini 报错
+        # 打印子进程的完整输出
         if pipeline_result.stdout:
             print("============= Pipeline Logs Start =============")
             print(pipeline_result.stdout)
@@ -123,14 +123,12 @@ def chat_response(data):
         if pipeline_result.stdout:
             for line in pipeline_result.stdout.splitlines():
                 if "[ASR] 识别结果:" in line:
-                    # 提取冒号后面的文本
                     parts = line.split("[ASR] 识别结果:", 1)
                     if len(parts) > 1:
                         user_question = parts[1].strip()
                     break
         
         print(f"[chat_engine] 用户提问: {user_question}")
-        # ---------------------------------------------------
 
         # 读取 Pipeline 生成的回复文本
         if not os.path.exists(INTERMEDIATE_TEXT_FILE):
@@ -142,7 +140,7 @@ def chat_response(data):
         print(f"[chat_engine] AI 回复: {ai_long_text[:50]}...")
 
         # -----------------------------------------------
-        # 步骤 2: RVC 语音克隆 (保持原逻辑不变)
+        # 步骤 2: RVC 语音克隆
         # -----------------------------------------------
         text_chunks = simple_splitter(ai_long_text)
         print(f"[chat_engine] 2. RVC 克隆 ({len(text_chunks)} 块)...")
@@ -173,17 +171,27 @@ def chat_response(data):
                 "--out", docker_out_path
             ]
             
+            # 【新增】开始计时
+            chunk_start_time = time.time()
+            
             subprocess.run(cmd_docker_rvc, check=True, cwd=BASE_DIR, capture_output=True, text=True, encoding='utf-8')
+            
+            # 【新增】结束计时与打印提示
+            chunk_end_time = time.time()
+            duration = chunk_end_time - chunk_start_time
             
             if os.path.exists(host_chunk_path):
                 chunk_audio_files.append(host_chunk_path)
+                # 输出：完成提示 + 耗时
+                print(f"[chat_engine] ✅ 第 {i+1}/{len(text_chunks)} 块克隆完成 | 耗时: {duration:.2f}s | 文本: {chunk[:15]}...")
+            else:
+                print(f"[chat_engine] ❌ 第 {i+1}/{len(text_chunks)} 块克隆失败 | 耗时: {duration:.2f}s")
 
         # -----------------------------------------------
-        # 步骤 3: 拼接
+        # 步骤 3: 拼接音频
         # -----------------------------------------------
         if not chunk_audio_files:
-            # 如果没有音频生成（可能是文本为空），生成一段静音或报错
-            raise Exception("RVC 未生成任何音频")
+            raise Exception("RVC 未生成任何音频块")
 
         print(f"[chat_engine] 3. 拼接音频...")
         final_audio = AudioSegment.empty()

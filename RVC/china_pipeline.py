@@ -5,24 +5,24 @@ import json
 import requests
 from zhipuai import ZhipuAI
 from pydub import AudioSegment 
-# 【安全修改】引入 dotenv 以加载环境变量
 from dotenv import load_dotenv
 
 # --- 文件路径 ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# 【安全修改】加载 .env 文件
-# 脚本会尝试读取同目录下的 .env，或者项目根目录下的 .env
+# 加载 .env 文件
 load_dotenv(os.path.join(BASE_DIR, ".env")) 
 load_dotenv() 
 
 # --- 配置区域 ---
-# 【安全修改】不再硬编码，改为从环境变量获取
 ZHIPU_API_KEY = os.getenv("ZHIPU_API_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_BASE_URL = os.getenv("GEMINI_BASE_URL", "https://142790.xyz") # 提供默认值
+GEMINI_BASE_URL = os.getenv("GEMINI_BASE_URL", "https://142790.xyz")
 
-# 检查 Key 是否存在，给予提示
+# --- 【新增】统一的系统提示词 (System Prompt) ---
+# 核心指令：一段话回答 + 场景区分
+SYSTEM_PROMPT = "你是一个智能助手。请务必用一段话回答（不要分段）。在日常对话时回复尽量简短，而在面对专业问题时再提供长内容回答。"
+
 if not ZHIPU_API_KEY:
     print("[Config] 警告: 未找到 ZHIPU_API_KEY，请在 .env 文件中配置")
 if not GEMINI_API_KEY:
@@ -114,7 +114,10 @@ def get_llm_response_zhipu(user_text, model_name, history):
         return "错误: 智谱 API 未配置。"
         
     print(f"[LLM] 调用 Zhipu ({model_name})...")
-    messages = [{"role": "system", "content": "你是一个乐于助人的对话助手，请用简洁明了的中文回答。"}]
+    
+    # 【应用系统提示词】
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    
     for item in history:
         messages.append(item)
     messages.append({"role": "user", "content": user_text})
@@ -136,7 +139,6 @@ def get_llm_response_gemini(user_text, model_name, history):
 
     print(f"[LLM] 调用 Gemini ({model_name})...")
     
-    # 修正模型名称
     api_model_name = model_name
     
     url = f"{GEMINI_BASE_URL}/v1beta/models/{api_model_name}:generateContent?key={GEMINI_API_KEY}"
@@ -156,10 +158,13 @@ def get_llm_response_gemini(user_text, model_name, history):
     })
 
     payload = {
+        # 【应用系统提示词】Gemini 使用 system_instruction
+        "system_instruction": {
+            "parts": [{"text": SYSTEM_PROMPT}]
+        },
         "contents": contents,
         "generationConfig": {
             "temperature": 0.7,
-            # 【修改】大幅增加 Token 上限，防止思考过程耗尽 Token
             "maxOutputTokens": 8192, 
         }
     }
@@ -169,19 +174,14 @@ def get_llm_response_gemini(user_text, model_name, history):
     try:
         print(f"[Gemini Debug] Request URL: {url}")
         
-        response = requests.post(url, headers=headers, data=json.dumps(payload), timeout=60) # 增加超时时间
+        response = requests.post(url, headers=headers, data=json.dumps(payload), timeout=60)
         
         print(f"[Gemini Debug] HTTP Status: {response.status_code}")
         
         if response.status_code == 200:
             result = response.json()
-            # 打印原始返回结果
-            # print(f"[Gemini Debug] Raw Response: {json.dumps(result, ensure_ascii=True)}")
-            
             try:
-                # 检查是否被拦截
                 if "promptFeedback" in result:
-                    # 检查 promptFeedback 是否包含 blockReason
                     pf = result["promptFeedback"]
                     if "blockReason" in pf:
                         print(f"[Gemini Debug] PromptFeedback Blocked: {pf}")
@@ -191,17 +191,14 @@ def get_llm_response_gemini(user_text, model_name, history):
                     return "Gemini API 未返回结果 (可能被安全策略拦截)。"
 
                 candidate = result['candidates'][0]
-                
-                # 【修改】更健壮的字段解析
                 content = candidate.get("content", {})
                 parts = content.get("parts", [])
                 
                 if not parts:
                     finish_reason = candidate.get("finishReason", "UNKNOWN")
                     print(f"[Gemini Debug] Finish Reason: {finish_reason}")
-                    
                     if finish_reason == "MAX_TOKENS":
-                        return "回答被截断 (Token上限不足)，请再次增加 maxOutputTokens。"
+                        return "回答被截断 (Token上限不足)。"
                     elif finish_reason == "SAFETY":
                         return "回答被安全策略拦截。"
                     else:
@@ -215,8 +212,6 @@ def get_llm_response_gemini(user_text, model_name, history):
                 
             except (KeyError, IndexError) as e:
                 print(f"[Gemini Error] 解析 JSON 失败: {e}")
-                # 打印出有问题的 candidate 以便调试
-                print(f"[Gemini Error Debug] Candidate data: {result.get('candidates', 'No candidates')}")
                 return "Gemini 返回格式异常 (解析失败)。"
         else:
             print(f"[Gemini Error] API 错误: {response.text}")
@@ -225,8 +220,6 @@ def get_llm_response_gemini(user_text, model_name, history):
     except Exception as e:
         print(f"[Gemini Error] 连接异常: {e}")
         return "无法连接到 Gemini API。"
-
-# --- 主逻辑 ---
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ASR + LLM 管道 (Gemini/Zhipu)")
