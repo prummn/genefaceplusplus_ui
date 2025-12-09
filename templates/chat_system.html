@@ -5,15 +5,33 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>实时对话系统</title>
-    <!-- 引入 FontAwesome 图标库 (用于麦克风、清除等图标) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/chat_system.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/instruction.css') }}">
+    <style>
+        /* 新增 GeneFace 专用样式 */
+        .geneface-group {
+            display: none;
+            background: rgba(79, 195, 247, 0.1);
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(79, 195, 247, 0.3);
+        }
+        .geneface-group.active {
+            display: block;
+        }
+        .gf-sub-label {
+            font-size: 0.85em;
+            color: #aaa;
+            margin-bottom: 5px;
+            display: block;
+        }
+    </style>
 </head>
 
 <body class="subpage-bg">
 
-    <!-- 顶部导航 -->
     <button onclick="window.location.href='/'" aria-label="返回首页" title="返回首页" class="back-btn">
         <i class="fas fa-arrow-left"></i> 返回
     </button>
@@ -21,58 +39,76 @@
     <button class="vg-help-button" id="vg_openHelpBtn" aria-haspopup="dialog" aria-controls="vg_helpModal">
         <i class="fas fa-terminal"></i> 参数说明
     </button>
-    
-    
-    
+
     <div class="page-container">
         <h2>实时对话系统</h2>
-        
+
         <div class="video-page-container">
-            <!-- 左侧：语音交互区 (添加 tech-panel 类) -->
+            <!-- 左侧：语音交互区 -->
             <div class="video-display tech-panel">
-                <!-- 语音录制器 -->
                 <div class="voice-recorder">
-                    <!-- 装饰性标签 -->
                     <div class="module-label">AUDIO INPUT MODULE</div>
-                    
+
                     <button id="recordButton" class="record-btn">
                         <i class="fas fa-microphone-alt" style="font-size: 24px;"></i>
                         <span style="margin-top: 5px;">点击录音</span>
                     </button>
-                    
+
                     <div class="timer" id="timer">00:00</div>
-                    
+
                     <div class="recording-indicator" id="recordingIndicator" style="display: none;">
                         <div class="recording-dot"></div>
                         <span>正在采集音频数据...</span>
                     </div>
-                    
+
                     <div class="status-message" id="statusMessage">等待指令输入</div>
                 </div>
-                
-                <!-- 视频/音频显示 -->
-                <!-- 确保 poster 图片路径正确，或者去掉 poster 属性 -->
-                <video id="chatVideo" controls poster="{{ url_for('static', filename='images/audio_placeholder.png') }}">
-                    <source src="{{ url_for('static', filename='audios/cloned_output.wav') }}" type="audio/wav">
-                    您的浏览器不支持音频播放。
+
+                <!-- 视频显示区域 -->
+                <video id="chatVideo" controls autoplay playsinline poster="{{ url_for('static', filename='images/audio_placeholder.png') }}" style="width: 100%; border-radius: 8px; background: #000;">
+                    <source src="" type="video/mp4">
+                    您的浏览器不支持视频播放。
                 </video>
             </div>
 
-            <!-- 右侧：参数控制区 (添加 tech-panel 类) -->
+            <!-- 右侧：参数控制区 -->
             <div class="form-section tech-panel">
                 <form id="chatForm">
-                    <!-- 1. 数字人模型 -->
+                    <!-- 1. 数字人模型选择 -->
                     <div class="form-group">
                         <label><i class="fas fa-user-astronaut"></i> 数字人模型</label>
-                        <select name="model_name">
-                            <option value="SyncTalk">SyncTalk (推荐)</option>
+                        <select name="model_name" id="model_name_select" onchange="toggleModelSettings()">
+                            <option value="SyncTalk">SyncTalk (默认)</option>
+                            <option value="GeneFace++">GeneFace++ (高质量)</option>
                             <option value="Wav2Lip">Wav2Lip</option>
                             <option value="SadTalker">SadTalker</option>
                         </select>
                     </div>
 
-                    <!-- 2. 模型权重 -->
-                    <div class="form-group">
+                    <!-- GeneFace++ 专用设置区域 -->
+                    <div id="geneface_settings" class="geneface-group">
+                        <div class="form-group">
+                            <label><i class="fas fa-street-view"></i> 身体模型文件夹 (Video ID)</label>
+                            <span class="gf-sub-label">选择 checkpoints/motion2video_nerf 下的 torso 文件夹</span>
+                            <select id="gf_video_id_select" onchange="onGfVideoIdChange()">
+                                <option value="">-- 请先加载模型 --</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fas fa-file-code"></i> 选择 Checkpoint 文件</label>
+                            <span class="gf-sub-label">选择具体的 .ckpt 或 .pt 文件</span>
+                            <select name="gf_torso_ckpt" id="gf_torso_ckpt_select">
+                                <option value="">-- 请先选择文件夹 --</option>
+                            </select>
+                        </div>
+
+                        <!-- 隐藏的 Head Ckpt 字段，自动关联 -->
+                        <input type="hidden" name="gf_head_ckpt" id="gf_head_ckpt_input">
+                    </div>
+
+                    <!-- 其他模型通用参数 -->
+                    <div class="form-group" id="common_model_param">
                         <label><i class="fas fa-folder-open"></i> 模型权重路径</label>
                         <input type="text" name="model_param" value="checkpoints/demo.pth" placeholder="输入路径...">
                     </div>
@@ -96,8 +132,7 @@
                             <option value="glm-4.5-flash">GLM-4.5 Flash</option>
                         </select>
                     </div>
-                    
-                    <!-- 按钮组：使用新的 CSS 类名 -->
+
                     <div class="button-group">
                         <button type="submit" class="generate-btn primary-btn">
                             <i class="fas fa-comments"></i> 开始对话
@@ -110,17 +145,15 @@
             </div>
         </div>
     </div>
-    
-    <!-- 模态框 (参数说明) -->
+
+    <!-- 模态框 (保持不变) -->
     <div class="vg-modal-backdrop" id="vg_helpModal" role="dialog" aria-modal="true" aria-labelledby="vg_helpTitle" tabindex="-1" hidden>
         <div class="vg-modal-content" role="document">
             <div class="vg-modal-header">
                 <h2 class="vg-modal-title" id="vg_helpTitle">系统参数说明</h2>
                 <button class="vg-modal-close" id="vg_closeHelpBtn" aria-label="关闭">✕</button>
             </div>
-
             <pre id="vg_helpBody" class="vg-modal-body" tabindex="0" data-src="{{ url_for('static', filename='text/chat_system.txt') }}"></pre>
-
             <div class="vg-modal-actions">
                 <button class="vg-btn vg-btn-primary" id="vg_playTutorialBtn" type="button"
                         data-video="{{ url_for('static', filename='videos/tutorial.mp4') }}">
@@ -132,18 +165,100 @@
 
     <script src="{{ url_for('static', filename='js/chat_system.js') }}"></script>
     <script src="{{ url_for('static', filename='js/instruction.js') }}"></script>
-    
+
     <script>
+        // 全局缓存模型数据
+        let geneFaceModelsData = [];
+
+        function toggleModelSettings() {
+            const model = document.getElementById('model_name_select').value;
+            const gfGroup = document.getElementById('geneface_settings');
+            const commonGroup = document.getElementById('common_model_param');
+
+            if (model === 'GeneFace++') {
+                gfGroup.classList.add('active');
+                commonGroup.style.display = 'none';
+                loadGeneFaceModels();
+            } else {
+                gfGroup.classList.remove('active');
+                commonGroup.style.display = 'block';
+            }
+        }
+
+        function loadGeneFaceModels() {
+            const videoSelect = document.getElementById('gf_video_id_select');
+            // 避免重复加载
+            if (videoSelect.options.length > 1) return;
+
+            videoSelect.innerHTML = '<option>加载中...</option>';
+
+            fetch('/geneface/models')
+                .then(res => res.json())
+                .then(data => {
+                    geneFaceModelsData = data; // 缓存数据
+                    videoSelect.innerHTML = '<option value="">-- 请选择模型文件夹 --</option>';
+
+                    data.forEach(m => {
+                        // 只有当存在 torso checkpoints 时才显示
+                        if (m.torso_checkpoints && m.torso_checkpoints.length > 0) {
+                            const opt = document.createElement('option');
+                            opt.value = m.video_id;
+                            opt.textContent = `${m.video_id} (${m.torso_checkpoints.length} ckpts)`;
+                            videoSelect.appendChild(opt);
+                        }
+                    });
+                })
+                .catch(err => {
+                    console.error(err);
+                    videoSelect.innerHTML = '<option>加载失败</option>';
+                });
+        }
+
+        function onGfVideoIdChange() {
+            const videoId = document.getElementById('gf_video_id_select').value;
+            const ckptSelect = document.getElementById('gf_torso_ckpt_select');
+            const headInput = document.getElementById('gf_head_ckpt_input');
+
+            ckptSelect.innerHTML = '<option value="">-- 请选择具体文件 --</option>';
+            headInput.value = "";
+
+            if (!videoId) return;
+
+            // 查找对应的数据
+            const modelData = geneFaceModelsData.find(m => m.video_id === videoId);
+
+            if (modelData) {
+                // 1. 填充 Torso 下拉框
+                modelData.torso_checkpoints.forEach(ckptPath => {
+                    const opt = document.createElement('option');
+                    opt.value = ckptPath;
+                    // 只显示文件名，去掉冗长的路径前缀
+                    const parts = ckptPath.split('/');
+                    opt.textContent = parts[parts.length - 1];
+                    ckptSelect.appendChild(opt);
+                });
+                // 默认选中第一个（通常是最新的）
+                if (modelData.torso_checkpoints.length > 0) {
+                    ckptSelect.selectedIndex = 1;
+                }
+
+                // 2. 自动处理 Head Checkpoint
+                // 如果有具体的 head ckpt 文件，取第一个；否则构建默认路径
+                if (modelData.head_checkpoints && modelData.head_checkpoints.length > 0) {
+                    headInput.value = modelData.head_checkpoints[0]; // 取最新的
+                } else {
+                    // 回退到文件夹路径
+                    headInput.value = `checkpoints/motion2video_nerf/${videoId}_head`;
+                }
+            }
+        }
+
         // 清除历史逻辑
         document.getElementById('clearHistoryBtn').addEventListener('click', function() {
-            // 使用自定义样式的确认逻辑通常更好，但为了简单这里保留原生 confirm
             if(confirm('警告：确定要格式化对话记忆区吗？此操作不可逆。')) {
                 const btn = this;
                 const originalText = btn.innerHTML;
-                
-                // 按钮加载状态
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 清除中...';
-                
                 fetch('/clear_history', { method: 'POST' })
                     .then(res => res.json())
                     .then(data => {
@@ -151,12 +266,8 @@
                         document.getElementById('statusMessage').textContent = '记忆扇区已重置';
                         document.getElementById('statusMessage').style.color = 'var(--neon-cyan)';
                     })
-                    .catch(err => {
-                        alert('系统错误：清除失败');
-                    })
-                    .finally(() => {
-                        btn.innerHTML = originalText;
-                    });
+                    .catch(err => alert('系统错误：清除失败'))
+                    .finally(() => btn.innerHTML = originalText);
             }
         });
     </script>

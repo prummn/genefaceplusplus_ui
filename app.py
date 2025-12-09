@@ -33,14 +33,18 @@ def index():
 @app.route('/video_generation', methods=['GET', 'POST'])
 def video_generation():
     if request.method == 'POST':
-        # 修改这里：添加 GeneFace++ 专用的参数提取
+        # 修改这里：添加 voice_clone 参数提取
         data = {
             "model_name": request.form.get('model_name'),
             "model_param": request.form.get('model_param'),
             "ref_audio": request.form.get('ref_audio'),
             "gpu_choice": request.form.get('gpu_choice'),
+
+            # 核心修改：接收文本和音色
             "target_text": request.form.get('target_text'),
-            # 新增以下三行，确保参数能传给 backend
+            "voice_clone": request.form.get('voice_clone'),
+
+            # GeneFace++ 参数
             "gf_head_ckpt": request.form.get('gf_head_ckpt'),
             "gf_torso_ckpt": request.form.get('gf_torso_ckpt'),
             "gf_audio_path": request.form.get('gf_audio_path'),
@@ -48,9 +52,8 @@ def video_generation():
 
         video_path = generate_video(data)
         return jsonify({'status': 'success', 'video_path': video_path})
-    default_video = 'videos/sample.mp4'
 
-    # 检查是否有最新的 GeneFace 生成结果
+    default_video = 'videos/sample.mp4'
     latest_video_path = os.path.join('static', 'videos', 'geneface_latest.mp4')
     if os.path.exists(os.path.join(BASE_DIR, latest_video_path)):
         default_video = 'videos/geneface_latest.mp4'
@@ -91,6 +94,7 @@ def model_training():
 
 
 # 实时对话系统界面
+# 实时对话系统界面
 @app.route('/chat_system', methods=['GET', 'POST'])
 def chat_system():
     if request.method == 'POST':
@@ -99,12 +103,18 @@ def chat_system():
             "model_param": request.form.get('model_param'),
             "voice_clone": request.form.get('voice_clone'),
             "api_choice": request.form.get('api_choice'),
+            # 新增：GeneFace++ 参数
+            "gf_torso_ckpt": request.form.get('gf_torso_ckpt'),
+            "gf_head_ckpt": request.form.get('gf_head_ckpt'),
         }
 
-        video_path = chat_response(data)
-        video_path = "/" + video_path.replace("\\", "/")
+        # chat_response 现在会根据模型选择返回视频路径或音频路径
+        result_path = chat_response(data)
 
-        return jsonify({'status': 'success', 'video_path': video_path})
+        # 统一路径格式
+        result_path = "/" + result_path.replace("\\", "/") if not result_path.startswith("/") else result_path
+
+        return jsonify({'status': 'success', 'video_path': result_path})
 
     return render_template('chat_system.html')
 

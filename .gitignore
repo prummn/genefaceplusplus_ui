@@ -7,7 +7,7 @@ build/
 dist/
 *.egg-info/
 
-SyncTalk/SyncTalk/
+SyncTalk/
 
 GPT-SoVITS/
 
@@ -35,3 +35,8 @@ GeneFace/data/raw/videos/
 GeneFace/data/raw/val_wavs/
 GeneFace/data/raw/val_wavs/.gitkeep
 !GeneFace/data/raw/videos/.gitkeep
+
+static/videos/
+
+io/input
+io/output
