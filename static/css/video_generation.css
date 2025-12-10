@@ -1,3 +1,187 @@
+/* GeneFace++ 专用样式 */
+        .geneface-options { display: none; }
+        .geneface-options.active { display: block; }
+        .audio-source-group {
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+        }
+        /* 新增：文本生成音频的高亮样式 */
+        .text-gen-group {
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(79, 195, 247, 0.1); /* 淡蓝色背景 */
+            border: 1px solid rgba(79, 195, 247, 0.3);
+            border-radius: 8px;
+        }
+        .upload-status { font-size: 12px; margin-top: 5px; }
+        .upload-status.success { color: #81c784; }
+        .upload-status.error { color: #e57373; }
+        .model-info { font-size: 12px; color: #888; margin-top: 5px; }
+        .refresh-btn { padding: 5px 10px; margin-left: 10px; cursor: pointer; }
+        .generating-status {
+            padding: 15px; background: #1a1a2e; border-radius: 8px; margin-top: 15px; display: none;
+        }
+        .generating-status.active { display: block; }
+        .generating-status .spinner {
+            display: inline-block; width: 20px; height: 20px; border: 2px solid #4fc3f7;
+            border-top-color: transparent; border-radius: 50%;
+            animation: spin 1s linear infinite; margin-right: 10px; vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        body, html {
+            height: auto !important;
+            overflow-y: auto !important;
+        }
+
+        .page-container {
+            height: auto !important;
+            min-height: 100vh;
+            padding-bottom: 100px; /* 底部多留点空间 */
+        }
+
+        .video-page-container {
+            height: auto !important;
+            align-items: flex-start; /* 防止子元素强制等高 */
+        }
+
+        .form-section {
+            /* 移除可能存在的固定高度限制 */
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+        }
+/* 1. 标签行布局：两端对齐，底部留出间距 */
+.form-label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px; /* 标签和下拉框之间的距离 */
+}
+
+/* 2. 修正 Label 的默认边距 */
+.form-label-row label {
+    margin-bottom: 0; /* 移除 label 自身的底部边距，由 row 控制 */
+    color: #00e5ff;   /* 确保标题颜色醒目 (可选) */
+    font-weight: 500;
+}
+
+/* 3. 刷新按钮样式 (赛博朋克风格) */
+.refresh-btn {
+    background: transparent;
+    border: 1px solid rgba(0, 229, 255, 0.4);
+    color: #00e5ff;
+    padding: 2px 10px;     /* 小巧精致的内边距 */
+    font-size: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;              /* 图标和文字间距 */
+    font-family: inherit;
+}
+
+.refresh-btn:hover {
+    background: rgba(0, 229, 255, 0.15);
+    border-color: #00e5ff;
+    box-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+    text-shadow: 0 0 4px rgba(0, 229, 255, 0.6);
+}
+
+.refresh-btn .icon {
+    font-size: 14px; /* 图标稍微大一点 */
+    display: inline-block;
+}
+
+/* 点击时的微动效 */
+.refresh-btn:active {
+    transform: scale(0.95);
+}
+/* --- 文件选择器样式 --- */
+.file-input-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+/* 隐藏原生的 input */
+.hidden-input {
+    display: none;
+}
+
+/* 自定义文件选择按钮 */
+.custom-file-btn {
+    display: inline-block;
+    padding: 6px 16px;
+    background: rgba(0, 229, 255, 0.1);
+    border: 1px dashed #00e5ff;
+    border-radius: 4px;
+    color: #00e5ff;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.3s;
+    white-space: nowrap;
+}
+
+.custom-file-btn:hover {
+    background: rgba(0, 229, 255, 0.2);
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+}
+
+/* 文件名显示文字 */
+.file-name-text {
+    font-size: 12px;
+    color: #8899a6;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 180px; /* 防止文件名太长撑破布局 */
+}
+
+/* --- 输入框美化 (如果没有现有样式) --- */
+.styled-input {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid #33334d;
+    border-radius: 4px;
+    padding: 8px 12px;
+    color: #fff;
+    margin-bottom: 12px;
+    outline: none;
+    transition: border-color 0.3s;
+}
+.styled-input:focus {
+    border-color: #00e5ff;
+}
+
+/* --- 上传确认按钮 --- */
+.upload-action-btn {
+    width: 100%; /* 让按钮填满宽度，更有气势 */
+    padding: 10px;
+    background: linear-gradient(90deg, #00c6ff, #0072ff); /* 渐变蓝 */
+    border: none;
+    border-radius: 4px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 14px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: transform 0.2s, box-shadow 0.2s;
+    margin-top: 5px;
+}
+
+.upload-action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 114, 255, 0.4);
+}
+
+.upload-action-btn:active {
+    transform: translateY(0);
+}
 /* ==========================================================================
    0. 全局重置 (新增：防止 Padding 撑大布局)
    ========================================================================== */
@@ -149,6 +333,7 @@ h2::after {
     gap: 100px;
     flex-wrap: wrap;
     position: relative;
+    align-items: flex-start; 
     padding: 0 20px;
 }
 

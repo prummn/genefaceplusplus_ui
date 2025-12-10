@@ -6,62 +6,6 @@
     <title>视频生成</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/video_generation.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/instruction.css') }}">
-    <style>
-        /* GeneFace++ 专用样式 */
-        .geneface-options { display: none; }
-        .geneface-options.active { display: block; }
-        .audio-source-group {
-            margin: 10px 0;
-            padding: 10px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 8px;
-        }
-        /* 新增：文本生成音频的高亮样式 */
-        .text-gen-group {
-            margin: 10px 0;
-            padding: 10px;
-            background: rgba(79, 195, 247, 0.1); /* 淡蓝色背景 */
-            border: 1px solid rgba(79, 195, 247, 0.3);
-            border-radius: 8px;
-        }
-        .upload-status { font-size: 12px; margin-top: 5px; }
-        .upload-status.success { color: #81c784; }
-        .upload-status.error { color: #e57373; }
-        .model-info { font-size: 12px; color: #888; margin-top: 5px; }
-        .refresh-btn { padding: 5px 10px; margin-left: 10px; cursor: pointer; }
-        .generating-status {
-            padding: 15px; background: #1a1a2e; border-radius: 8px; margin-top: 15px; display: none;
-        }
-        .generating-status.active { display: block; }
-        .generating-status .spinner {
-            display: inline-block; width: 20px; height: 20px; border: 2px solid #4fc3f7;
-            border-top-color: transparent; border-radius: 50%;
-            animation: spin 1s linear infinite; margin-right: 10px; vertical-align: middle;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        body, html {
-            height: auto !important;
-            overflow-y: auto !important;
-        }
-
-        .page-container {
-            height: auto !important;
-            min-height: 100vh;
-            padding-bottom: 100px; /* 底部多留点空间 */
-        }
-
-        .video-page-container {
-            height: auto !important;
-            align-items: flex-start; /* 防止子元素强制等高 */
-        }
-
-        .form-section {
-            /* 移除可能存在的固定高度限制 */
-            height: auto !important;
-            max-height: none !important;
-            overflow: visible !important;
-        }
-    </style>
 </head>
 
 <body class="subpage-bg">
@@ -91,7 +35,7 @@
                         <label>模型名称</label>
                         <select name="model_name" id="model_name" onchange="toggleModelOptions()">
                             <option value="SyncTalk">SyncTalk</option>
-                            <option value="GeneFace++">GeneFace++</option>
+                            <option value="GeneFace++" selected>GeneFace++</option>
                         </select>
                     </div>
 
@@ -123,13 +67,15 @@
                     <!-- 方式B: 音频文件 (原有的逻辑) -->
                     <div id="audio_file_options">
                         <!-- SyncTalk 的音频输入 -->
-                        <div id="synctalk_audio_input" class="form-group">
+                        <div id="synctalk_audio_input" class="form-group" style="display: none;">
                             <label>参考音频地址</label>
                             <input type="text" name="ref_audio" placeholder="请输入音频路径">
                         </div>
 
-                        <!-- GeneFace 的音频输入 (包含上传/选择) -->
-                        <div id="geneface_audio_input" class="geneface-options">
+                        <!-- GeneFace 的音频输入区域 -->
+                        <div id="geneface_audio_input" class="geneface-options active">
+                            
+                            <!-- 1. 下拉选择框 -->
                             <div class="form-group">
                                 <label>音频来源</label>
                                 <select id="audio_source" onchange="toggleAudioSource()">
@@ -137,24 +83,50 @@
                                     <option value="upload">上传新音频</option>
                                 </select>
                             </div>
-                            <div class="audio-source-group" id="existing_audio_group">
-                                <label>选择音频 <button type="button" class="refresh-btn" onclick="refreshAudios()">🔄</button></label>
+
+                            <!-- 2. 选择已有音频区域 (ID: existing_audio_group) -->
+                            <div class="form-group" id="existing_audio_group">
+                                <div class="form-label-row">
+                                    <label>选择音频</label>
+                                    <button type="button" class="refresh-btn" onclick="refreshAudios()">
+                                        <span class="icon">⟳</span> 刷新
+                                    </button>
+                                </div>
                                 <select name="gf_audio" id="gf_audio_select">
                                     <option value="">-- 请选择 --</option>
                                 </select>
                             </div>
+
+                            <!-- 3. 上传新音频区域 (ID: upload_audio_group) -->
+                            <!-- ★★★ 关键点：这个 ID 必须存在，且默认 style="display: none;" ★★★ -->
                             <div class="audio-source-group" id="upload_audio_group" style="display: none;">
+                                
                                 <label>上传音频文件 (WAV/MP3)</label>
-                                <input type="file" id="audio_file" accept=".wav,.mp3,.m4a">
-                                <input type="text" id="audio_name" placeholder="音频名称（可选）" style="margin-top: 5px;">
-                                <button type="button" onclick="uploadAudio()" style="margin-top: 5px;">上传</button>
+                                
+                                <!-- 文件选择器容器 -->
+                                <div class="file-input-container">
+                                    <input type="file" id="audio_file" accept=".wav,.mp3,.m4a" class="hidden-input" onchange="updateFileName(this)">
+                                    <label for="audio_file" class="custom-file-btn">📂 点击选择文件</label>
+                                    <span id="file_name_display" class="file-name-text">未选择文件</span>
+                                </div>
+
+                                <!-- 音频名称输入框 -->
+                                <input type="text" id="audio_name" class="styled-input" placeholder="音频名称（可选）">
+
+                                <!-- 上传按钮 -->
+                                <button type="button" onclick="uploadAudio()" class="upload-action-btn">
+                                    ⬆ 确认上传
+                                </button>
+                                
+                                <!-- 上传状态提示 -->
                                 <div id="audio_upload_status" class="upload-status"></div>
                             </div>
+
                         </div>
                     </div>
 
                     <!-- SyncTalk 选项 -->
-                    <div id="synctalk_options">
+                    <div id="synctalk_options" style="display: none;">
                         <div class="form-group">
                             <label>模型目录地址</label>
                             <input type="text" name="model_param" placeholder="请输入模型目录路径">
@@ -162,12 +134,20 @@
                     </div>
 
                     <!-- GeneFace++ 选项 -->
-                    <div id="geneface_options" class="geneface-options">
+                    <div id="geneface_options" class="geneface-options active">
                         <div class="form-group">
                             <span id="gf_service_status" style="font-size: 12px;">检查服务中...</span>
                         </div>
                         <div class="form-group">
-                            <label>选择角色 (Video ID) <button type="button" class="refresh-btn" onclick="refreshModels()">🔄 刷新</button></label>
+                            <!-- 头部区域：左侧文字，右侧按钮 -->
+                            <div class="form-label-row">
+                                <label>选择角色 (Video ID)</label>
+                                <button type="button" class="refresh-btn" onclick="refreshModels()">
+                                    <span class="icon">⟳</span> 刷新
+                                </button>
+                            </div>
+
+                            <!-- 下拉选择框 -->
                             <select id="gf_video_id_select" onchange="onVideoIdSelected()">
                                 <option value="">-- 请选择 --</option>
                             </select>
@@ -197,132 +177,7 @@
         </div>
     </div>
 
-    <!-- 模态框代码省略，保持不变 -->
-    <!-- ... -->
-
-    <script>
-    // ==================== 界面交互逻辑 ====================
-
-    let genefaceModels = {};
-
-    function toggleDriveMode() {
-        const mode = document.getElementById('drive_mode').value;
-        const textOpts = document.getElementById('text_gen_options');
-        const audioOpts = document.getElementById('audio_file_options');
-
-        if (mode === 'text_gen') {
-            textOpts.style.display = 'block';
-            audioOpts.style.display = 'none';
-        } else {
-            textOpts.style.display = 'none';
-            audioOpts.style.display = 'block';
-        }
-    }
-
-    function toggleModelOptions() {
-        const choice = document.getElementById('model_name').value;
-        const synctalkOpts = document.getElementById('synctalk_options');
-        const genefaceOpts = document.getElementById('geneface_options'); // 参数部分
-        const genefaceAudioInput = document.getElementById('geneface_audio_input'); // 音频输入部分
-        const synctalkAudioInput = document.getElementById('synctalk_audio_input'); // SyncTalk音频输入
-
-        if (choice === 'GeneFace++') {
-            synctalkOpts.style.display = 'none';
-            synctalkAudioInput.style.display = 'none';
-
-            genefaceOpts.classList.add('active');
-            genefaceAudioInput.classList.add('active');
-
-            checkGenefaceHealth();
-            refreshModels();
-            refreshAudios();
-        } else {
-            synctalkOpts.style.display = 'block';
-            synctalkAudioInput.style.display = 'block';
-
-            genefaceOpts.classList.remove('active');
-            genefaceAudioInput.classList.remove('active');
-        }
-    }
-
-    // ... (checkGenefaceHealth, refreshModels, onVideoIdSelected, refreshAudios, toggleAudioSource, uploadAudio 保持不变) ...
-    // 为了节省篇幅，此处省略重复的 JS 函数，请保留之前实现的这些函数逻辑
-    function checkGenefaceHealth() { /* ... */ fetch('/geneface/health').then(r=>r.json()).then(d=>{document.getElementById('gf_service_status').innerHTML=d.status==='ok'?'✓ 正常':'✗ '+d.message}).catch(()=>{document.getElementById('gf_service_status').innerHTML='✗ 无法连接'}); }
-    function refreshModels() { /* ... */ const s=document.getElementById('gf_video_id_select');s.innerHTML='<option>Loading...</option>';fetch('/geneface/models').then(r=>r.json()).then(d=>{genefaceModels={};s.innerHTML='<option value="">-- 请选择 --</option>';d.forEach(m=>{genefaceModels[m.video_id]=m;const o=document.createElement('option');o.value=m.video_id;o.textContent=m.video_id;s.appendChild(o)})}); }
-    function onVideoIdSelected() { /* ... */ const v=document.getElementById('gf_video_id_select').value;const h=document.getElementById('gf_head_ckpt_select');const t=document.getElementById('gf_torso_ckpt_select');h.innerHTML='';t.innerHTML='';if(v&&genefaceModels[v]){const d=genefaceModels[v];(d.head_checkpoints||[]).forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p.split('/').pop();h.appendChild(o)});(d.torso_checkpoints||[]).forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p.split('/').pop();t.appendChild(o)});if(t.options.length>0)t.selectedIndex=0;if(h.options.length>0)h.selectedIndex=0} }
-    function refreshAudios() { /* ... */ const s=document.getElementById('gf_audio_select');fetch('/geneface/audios').then(r=>r.json()).then(d=>{s.innerHTML='<option value="">-- 请选择 --</option>';d.forEach(a=>{const o=document.createElement('option');o.value=a.path;o.textContent=a.name;s.appendChild(o)})}) }
-    function toggleAudioSource() { /* ... */ const s=document.getElementById('audio_source').value;document.getElementById('existing_audio_group').style.display=s==='existing'?'block':'none';document.getElementById('upload_audio_group').style.display=s==='upload'?'block':'none' }
-    function uploadAudio() { /* ... */ /* 保留之前的上传逻辑 */ }
-
-
-    // ==================== 表单提交 ====================
-
-    document.getElementById('videoForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-
-        const modelName = document.getElementById('model_name').value;
-        const driveMode = document.getElementById('drive_mode').value;
-        const formData = new FormData(this);
-
-        // 校验逻辑
-        if (driveMode === 'text_gen') {
-            const text = document.getElementById('target_text').value;
-            if (!text.trim()) {
-                alert('请输入要生成的文本');
-                return;
-            }
-            // 清空文件音频路径，确保后端使用文本生成
-            formData.set('gf_audio_path', '');
-            formData.set('ref_audio', '');
-        } else {
-            // 音频文件模式
-            formData.set('target_text', ''); // 清空文本，确保后端不生成
-
-            if (modelName === 'GeneFace++') {
-                const headCkpt = document.getElementById('gf_head_ckpt_select').value;
-                const torsoCkpt = document.getElementById('gf_torso_ckpt_select').value;
-                if (!headCkpt || !torsoCkpt) { alert('请选择模型'); return; }
-
-                let audioPath = '';
-                const audioSource = document.getElementById('audio_source').value;
-                if (audioSource === 'existing') audioPath = document.getElementById('gf_audio_select').value;
-
-                if (!audioPath) { alert('请选择音频文件'); return; }
-                formData.set('gf_audio_path', audioPath);
-            }
-        }
-
-        // 显示生成状态
-        document.getElementById('generatingStatus').classList.add('active');
-        document.getElementById('statusText').textContent = driveMode === 'text_gen' ? '正在克隆语音...' : '正在生成视频...';
-        document.getElementById('submitBtn').disabled = true;
-
-        fetch('/video_generation', {
-            method: 'POST',
-            body: formData
-        })
-        .then(r => r.json())
-        .then(data => {
-            document.getElementById('generatingStatus').classList.remove('active');
-            document.getElementById('submitBtn').disabled = false;
-
-            if (data.status === 'success' && data.video_path) {
-                const videoEl = document.getElementById('previewVideo');
-                const sourceEl = document.getElementById('videoSource');
-                sourceEl.src = '/' + data.video_path + '?t=' + Date.now();
-                videoEl.load();
-                videoEl.play();
-            } else {
-                alert('生成失败: ' + (data.message || '未知错误'));
-            }
-        })
-        .catch(e => {
-            document.getElementById('generatingStatus').classList.remove('active');
-            document.getElementById('submitBtn').disabled = false;
-            alert('请求失败: ' + e.message);
-        });
-    });
-    </script>
+    <script src="{{ url_for('static', filename='js/video_generation.js') }}"></script>
     <script src="{{ url_for('static', filename='js/instruction.js') }}"></script>
 </body>
 </html>
