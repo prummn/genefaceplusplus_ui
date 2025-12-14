@@ -261,6 +261,43 @@ h2::after {
 /* ==========================================================================
    7. 右侧：参数表单 (Control Panel)
    ========================================================================== */
+
+/* GeneFace 专用区域样式 - 紧凑版 */
+.geneface-group {
+    display: none;
+    background: rgba(79, 195, 247, 0.08); /* 稍微调淡一点背景 */
+    padding: 8px 10px; /* 减小上下内边距 */
+    border-radius: 6px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(79, 195, 247, 0.2);
+}
+.geneface-group.active {
+    display: block;
+}
+
+/* 让内部的 form-group 更紧凑 */
+.geneface-group .form-group {
+    margin-bottom: 8px; /* 减小内部元素间距 */
+}
+.geneface-group .form-group:last-child {
+    margin-bottom: 0; /* 最后一个元素不需要下边距 */
+}
+
+.gf-sub-label {
+    font-size: 0.75em; /* 稍微调小字体 */
+    color: #bbb;
+    margin-bottom: 2px; /* 减小标签和输入框的距离 */
+    display: block;
+    line-height: 1.2;
+}
+
+/* 稍微调整下拉框高度，使其在紧凑模式下更协调 */
+.geneface-group select {
+    padding: 4px 8px;
+    height: 32px;
+    font-size: 0.9em;
+}
+
 .form-section {
     flex: 1;
     min-width: 380px;

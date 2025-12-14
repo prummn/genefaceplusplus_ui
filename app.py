@@ -94,7 +94,6 @@ def model_training():
 
 
 # 实时对话系统界面
-# 实时对话系统界面
 @app.route('/chat_system', methods=['GET', 'POST'])
 def chat_system():
     if request.method == 'POST':
@@ -130,7 +129,7 @@ def save_audio():
 
     # --- 修复流程开始 ---
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    save_dir = os.path.join(base_dir, 'SyncTalk', 'audio')
+    save_dir = os.path.join(base_dir, 'io', "history")
     os.makedirs(save_dir, exist_ok=True)
 
     # 1. 先将浏览器发送的(可能损坏的)Blob保存到一个临时文件
