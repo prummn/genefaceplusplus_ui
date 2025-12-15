@@ -1,7 +1,8 @@
 let pollInterval = null;
     let lastStep = '';
     let genefaceModels = []; // 缓存模型列表
-
+	let currentTaskId = null;
+	let current_cmd=0;
     function fetchModelsForTraining() {
         // 获取所有模型信息，用于填充 Head Checkpoint 下拉框
         return fetch('/geneface/models')
@@ -218,6 +219,9 @@ let pollInterval = null;
                     addLog(data.status === 'completed' ? '✓ 完成！' : '✗ 失败: ' + (data.error || ''),
                            data.status === 'completed' ? 'success' : 'error');
                     clearInterval(pollInterval);
+					currentTaskId = null; 
+					document.getElementById('stopBtn').style.display = 'none';
+					document.getElementById('submitBtn').style.display = 'inline-block';
                     document.getElementById('submitBtn').disabled = false;
                     document.getElementById('submitBtn').textContent = '开始训练';
 
@@ -231,6 +235,54 @@ let pollInterval = null;
         poll();
         pollInterval = setInterval(poll, 3000);
     }
+	// 停止训练核心函数
+	function stopTraining() {
+		if (!currentTaskId) {
+			addLog('无运行中的训练任务', 'warning');
+			return;
+		}
+
+		addLog('正在停止任务: ' + currentTaskId, 'info');
+		// 禁用停止按钮，避免重复点击
+		document.getElementById('stopBtn').disabled = true;
+		document.getElementById('stopBtn').textContent = '停止中...';
+		
+		const formData = new FormData();
+		formData.append('cmd', current_cmd);
+
+		// 调用后端停止训练接口（需后端配合实现/geneface/stop/{taskId}）
+		fetch(`/geneface/stop/${currentTaskId}`, { method: 'POST' , body: formData})
+			.then(r => r.json())
+			.then(data => {
+				if (data.status === 'success') {
+					addLog('✓ 任务已停止', 'success');
+				} else {
+					addLog('✗ 停止失败: ' + (data.message || '未知错误'), 'error');
+				}
+			})
+			.catch(err => {
+				addLog('✗ 停止请求失败: ' + err.message, 'error');
+			})
+			.finally(() => {
+				// 停止轮询，恢复按钮状态
+				clearInterval(pollInterval);
+				pollInterval = null;
+				currentTaskId = null;
+				
+				// 恢复按钮显示：隐藏停止、显示提交
+				document.getElementById('stopBtn').style.display = 'none';
+				document.getElementById('stopBtn').disabled = false;
+				document.getElementById('stopBtn').textContent = '停止训练';
+				document.getElementById('submitBtn').style.display = 'inline-block';
+				document.getElementById('submitBtn').disabled = false;
+				document.getElementById('submitBtn').textContent = '开始训练';
+
+				// 更新任务状态为已停止
+				document.getElementById('taskState').textContent = '已停止';
+				document.getElementById('taskState').className = 'value status-stopped';
+			});
+	}
+
 
     document.getElementById('trainForm').addEventListener('submit', function(e) {
     e.preventDefault();
@@ -268,6 +320,17 @@ let pollInterval = null;
     document.getElementById('submitBtn').disabled = true;
     document.getElementById('submitBtn').textContent = '处理中...';
     document.getElementById('progressFill').classList.remove('error');
+	
+	if(formData.get('train_stage')=='preprocess')
+	{
+		current_cmd=1
+	}else if(formData.get('train_stage')=='head')
+	{
+		current_cmd=2
+	}else{
+		current_cmd=3
+	}
+	
 
     fetch('/model_training', { method: 'POST', body: formData })
         .then(r => {
@@ -290,7 +353,10 @@ let pollInterval = null;
 
             if (data.task_id) {
                 addLog(`任务创建: ${data.task_id}`, 'success');
+				currentTaskId = data.task_id;
                 pollTaskStatus(data.task_id);
+				document.getElementById('submitBtn').style.display = 'none';
+				document.getElementById('stopBtn').style.display = 'inline-block';
             } else if (data.status === 'error') {
                 addLog('错误: ' + data.message, 'error');
                 document.getElementById('submitBtn').disabled = false;
@@ -310,5 +376,6 @@ let pollInterval = null;
 
      document.addEventListener('DOMContentLoaded', function() {
         // 触发一次 toggleModelOptions 以确保逻辑与界面同步，并加载数据
+		document.getElementById('stopBtn').addEventListener('click', stopTraining);
         toggleModelOptions();
     });

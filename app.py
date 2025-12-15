@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, jsonify
 from pydub import AudioSegment
 import os
 from backend.video_generator import generate_video
-from backend.model_trainer import train_model
+from backend.model_trainer import train_model,stop_train_remote
 from backend.chat_engine import chat_response, clear_chat_history
 from werkzeug.utils import secure_filename
 from datetime import datetime
@@ -92,8 +92,24 @@ def model_training():
 
     return render_template('model_training.html')
 
+# 新增：停止训练任务路由
+@app.route('/geneface/stop/<task_id>', methods=['POST'])
+def geneface_stop(task_id):
+    """停止指定 ID 的训练任务"""
+    if request.method == 'POST':
+        cmd = request.form.get('cmd', type=int)
+        result = stop_train_remote(cmd)
 
-# 实时对话系统界面
+        # 确保返回 JSON
+        if isinstance(result, dict):
+            return jsonify(result)
+        else:
+            return jsonify({'status': 'success', 'video_path': result})
+
+    return render_template('model_training.html')
+
+
+
 # 实时对话系统界面
 @app.route('/chat_system', methods=['GET', 'POST'])
 def chat_system():
@@ -130,7 +146,7 @@ def save_audio():
 
     # --- 修复流程开始 ---
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    save_dir = os.path.join(base_dir, 'SyncTalk', 'audio')
+    save_dir = os.path.join(base_dir, 'io', "history")
     os.makedirs(save_dir, exist_ok=True)
 
     # 1. 先将浏览器发送的(可能损坏的)Blob保存到一个临时文件
@@ -139,7 +155,7 @@ def save_audio():
     audio_file.save(raw_file_path)
 
     # 2. 定义我们最终想要的、修复后的、固定的 WAV 路径
-    final_wav_path = os.path.join(save_dir, 'aud.wav')
+    final_wav_path = os.path.join(save_dir, 'latest_user_aud.wav')
 
     # 3. 使用 pydub 加载这个(可能损坏的)文件，并重新导出
     #    pydub (和 ffmpeg) 擅长猜测原始格式
@@ -177,7 +193,7 @@ def save_audio():
     # --- 修复流程结束 ---
 
     # 5. 返回成功信息
-    web_path = '/SyncTalk/audio/aud.wav'
+    web_path = '/io/history/latest_usr_aud.wav'
     return jsonify({'status': 'success', 'message': '音频保存并修复成功', 'file_path': web_path})
 
 

@@ -1,13 +1,17 @@
+// --- 全局变量 ---
 let mediaRecorder;
 let audioChunks = [];
 let isRecording = false;
 let startTime;
 let timerInterval;
+let geneFaceModelsData = []; // 缓存模型数据
 
 const recordButton = document.getElementById('recordButton');
 const timerDisplay = document.getElementById('timer');
 const recordingIndicator = document.getElementById('recordingIndicator');
 const statusMessage = document.getElementById('statusMessage');
+
+// --- 辅助函数 ---
 
 // 格式化时间显示
 function formatTime(seconds) {
@@ -21,6 +25,8 @@ function updateTimer() {
     const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
     timerDisplay.textContent = formatTime(elapsedSeconds);
 }
+
+// --- 录音功能模块 ---
 
 // 开始录音
 async function startRecording() {
@@ -68,7 +74,7 @@ async function startRecording() {
 
         mediaRecorder.start();
         isRecording = true;
-        recordButton.innerHTML = '<span>■</span> 停止录音';
+        recordButton.innerHTML = '<i class="fas fa-stop"></i><span style="margin-top: 5px;">停止录音</span>';
         recordButton.classList.add('recording');
         recordingIndicator.style.display = 'flex';
         statusMessage.textContent = '正在录音...';
@@ -87,7 +93,7 @@ function stopRecording() {
     if (mediaRecorder && isRecording) {
         mediaRecorder.stop();
         isRecording = false;
-        recordButton.innerHTML = '<span>●</span> 开始录音';
+        recordButton.innerHTML = '<i class="fas fa-microphone-alt" style="font-size: 24px;"></i><span style="margin-top: 5px;">点击录音</span>';
         recordButton.classList.remove('recording');
         recordingIndicator.style.display = 'none';
         statusMessage.textContent = '录音完成，正在处理...';
@@ -95,44 +101,21 @@ function stopRecording() {
     }
 }
 
-recordButton.addEventListener('click', () => {
-    if (!isRecording) {
-        startRecording();
-    } else {
-        stopRecording();
-    }
-});
+// --- 音频播放模块 ---
 
-// --- 【终极修复】使用 fetch + Blob 强制下载并播放 ---
-// 这种方法可以彻底解决 "文件存在但浏览器不播放" 或 "404" 的缓存/同步问题
 async function fetchAndPlayAudio(videoEl, url, retriesLeft) {
-    // 1. 构造防缓存 URL
     const uniqueUrl = url + '?t=' + new Date().getTime();
     console.log(`尝试下载音频 (剩余重试: ${retriesLeft}): ${uniqueUrl}`);
 
     try {
-        // 2. 使用 fetch 主动请求文件 (cache: 'no-store' 强制不缓存)
         const response = await fetch(uniqueUrl, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
 
-        if (!response.ok) {
-            throw new Error(`HTTP Error: ${response.status}`);
-        }
-
-        // 3. 获取文件的二进制数据 (Blob)
         const blob = await response.blob();
-        
-        // 检查文件大小，防止读取到空的占位文件
-        if (blob.size === 0) {
-            throw new Error("File size is 0");
-        }
+        if (blob.size === 0) throw new Error("File size is 0");
 
-        console.log("音频下载成功，大小:", blob.size);
-
-        // 4. 创建内存中的 Blob URL (这会绕过浏览器的文件加载机制)
         const blobUrl = URL.createObjectURL(blob);
 
-        // 5. 设置播放器源
-        // 先释放之前的 Blob URL，防止内存泄漏
         if (videoEl.src && videoEl.src.startsWith('blob:')) {
             URL.revokeObjectURL(videoEl.src);
         }
@@ -150,15 +133,12 @@ async function fetchAndPlayAudio(videoEl, url, retriesLeft) {
         };
 
         videoEl.src = blobUrl;
-        // Blob URL 不需要调用 load()，赋值即生效，但为了保险可以调用
         videoEl.load();
 
     } catch (err) {
         console.warn("下载或播放失败:", err);
-        
         if (retriesLeft > 0) {
             statusMessage.textContent = `音频同步中 (${retriesLeft})...`;
-            // 延迟 1.5 秒后重试
             setTimeout(() => {
                 fetchAndPlayAudio(videoEl, url, retriesLeft - 1);
             }, 1500);
@@ -168,49 +148,230 @@ async function fetchAndPlayAudio(videoEl, url, retriesLeft) {
     }
 }
 
-// --- 表单提交 ---
-document.getElementById('chatForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-    
-    const videoEl = document.getElementById('chatVideo');
-    
-    // 提交前清理播放器
-    videoEl.pause();
-    if (videoEl.src && videoEl.src.startsWith('blob:')) {
-        URL.revokeObjectURL(videoEl.src);
-    }
-    videoEl.removeAttribute('src');
-    videoEl.load();
+// --- GeneFace++ 交互逻辑 ---
 
-    statusMessage.textContent = 'AI 正在思考并生成语音，请稍候...';
-    const generateBtn = document.querySelector('.generate-btn');
-    const originalBtnText = generateBtn.textContent;
-    generateBtn.disabled = true;
-    generateBtn.textContent = '⏳ 处理中...';
+function loadGeneFaceModels() {
+    const videoSelect = document.getElementById('gf_video_id_select');
+    // 避免重复加载，如果已有选项且不是默认的loading状态
+    if (!videoSelect || (videoSelect.options.length > 1 && videoSelect.options[0].textContent !== '加载中...')) return;
 
-    const formData = new FormData(this);
+    videoSelect.innerHTML = '<option>加载中...</option>';
 
-    fetch('/chat_system', {
-        method: 'POST',
-        body: formData
-    })
+    fetch('/geneface/models')
         .then(res => res.json())
         .then(data => {
-            generateBtn.disabled = false;
-            generateBtn.textContent = originalBtnText;
+            geneFaceModelsData = data; // 缓存数据
+            videoSelect.innerHTML = '<option value="">-- 请选择模型文件夹 --</option>';
 
-            if (data.status === 'success') {
-                statusMessage.textContent = '生成完成，准备下载音频...';
-                // 使用新的 Blob 下载逻辑，最多重试 10 次
-                fetchAndPlayAudio(videoEl, data.video_path, 10);
-            } else {
-                statusMessage.textContent = '生成失败: ' + (data.message || '未知错误');
+            let hasValidModels = false;
+            data.forEach(m => {
+                // 只有当存在 torso checkpoints 时才显示
+                if (m.torso_checkpoints && m.torso_checkpoints.length > 0) {
+                    const opt = document.createElement('option');
+                    opt.value = m.video_id;
+                    opt.textContent = `${m.video_id} (${m.torso_checkpoints.length} ckpts)`;
+                    videoSelect.appendChild(opt);
+                    hasValidModels = true;
+                }
+            });
+            
+            if (!hasValidModels) {
+                 // 如果没有数据，提供示例选项以防界面空白
+                 const opt = document.createElement('option');
+                 opt.value = "may_torso";
+                 opt.textContent = "may_torso (示例)";
+                 videoSelect.appendChild(opt);
+                 
+                 const opt2 = document.createElement('option');
+                 opt2.value = "zhb_torso";
+                 opt2.textContent = "zhb_torso (示例)";
+                 videoSelect.appendChild(opt2);
             }
         })
         .catch(err => {
-            console.error('错误:', err);
-            statusMessage.textContent = '网络请求出错';
-            generateBtn.disabled = false;
-            generateBtn.textContent = originalBtnText;
+            console.error("加载模型失败:", err);
+            videoSelect.innerHTML = '<option value="">加载失败，请检查后端</option>';
+            // Fallback 示例
+            const opt = document.createElement('option');
+            opt.value = "may_torso";
+            opt.textContent = "may_torso (示例)";
+            videoSelect.appendChild(opt);
         });
+}
+
+function onGfVideoIdChange() {
+    const videoId = document.getElementById('gf_video_id_select').value;
+    const ckptSelect = document.getElementById('gf_torso_ckpt_select');
+    const headInput = document.getElementById('gf_head_ckpt_input');
+
+    ckptSelect.innerHTML = '<option value="">-- 请选择具体文件 --</option>';
+    if(headInput) headInput.value = "";
+
+    if (!videoId) return;
+
+    // 查找对应的数据
+    const modelData = geneFaceModelsData.find(m => m.video_id === videoId);
+
+    if (modelData) {
+        // 1. 填充 Torso 下拉框
+        modelData.torso_checkpoints.forEach(ckptPath => {
+            const opt = document.createElement('option');
+            opt.value = ckptPath;
+            // 只显示文件名，去掉冗长的路径前缀
+            const parts = ckptPath.split('/');
+            opt.textContent = parts[parts.length - 1];
+            ckptSelect.appendChild(opt);
+        });
+        // 默认选中第一个（通常是最新的）
+        if (modelData.torso_checkpoints.length > 0) {
+            ckptSelect.selectedIndex = 1;
+        }
+
+        // 2. 自动处理 Head Checkpoint
+        // 如果有具体的 head ckpt 文件，取第一个；否则构建默认路径
+        if (modelData.head_checkpoints && modelData.head_checkpoints.length > 0) {
+            if(headInput) headInput.value = modelData.head_checkpoints[0]; // 取最新的
+        } else {
+            // 回退到文件夹路径
+            if(headInput) headInput.value = `checkpoints/motion2video_nerf/${videoId}_head`;
+        }
+    } else {
+        // Fallback: 如果没有后端数据（例如使用的是示例选项）
+        const opt = document.createElement('option');
+        opt.value = 'last.ckpt';
+        opt.textContent = 'last.ckpt (自动检测)';
+        ckptSelect.appendChild(opt);
+        if(headInput) headInput.value = `checkpoints/motion2video_nerf/${videoId}_head`;
+    }
+}
+
+function toggleModelSettings() {
+    const modelSelect = document.getElementById('model_name_select');
+    if (!modelSelect) return;
+    
+    const model = modelSelect.value;
+    const gfGroup = document.getElementById('geneface_settings');
+    const commonGroup = document.getElementById('common_model_param');
+
+    if (model === 'GeneFace++') {
+        if(gfGroup) gfGroup.classList.add('active');
+        if(commonGroup) commonGroup.style.display = 'none';
+        loadGeneFaceModels();
+    } else {
+        if(gfGroup) gfGroup.classList.remove('active');
+        if(commonGroup) commonGroup.style.display = 'block';
+    }
+}
+
+// --- 界面交互与事件监听 ---
+
+// 1. 录音按钮事件
+if (recordButton) {
+    recordButton.addEventListener('click', () => {
+        if (!isRecording) {
+            startRecording();
+        } else {
+            stopRecording();
+        }
+    });
+}
+
+// 2. 表单提交事件 (对话生成)
+const chatForm = document.getElementById('chatForm');
+if (chatForm) {
+    chatForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        
+        const videoEl = document.getElementById('chatVideo');
+        
+        // 提交前清理播放器
+        if (videoEl) {
+            videoEl.pause();
+            if (videoEl.src && videoEl.src.startsWith('blob:')) {
+                URL.revokeObjectURL(videoEl.src);
+            }
+            videoEl.removeAttribute('src');
+            videoEl.load();
+        }
+
+        statusMessage.textContent = 'AI 正在思考并生成语音，请稍候...';
+        const generateBtn = document.querySelector('.generate-btn');
+        const originalBtnText = generateBtn ? generateBtn.innerHTML : '';
+        if (generateBtn) {
+            generateBtn.disabled = true;
+            generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
+        }
+
+        const formData = new FormData(this);
+
+        fetch('/chat_system', {
+            method: 'POST',
+            body: formData
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (generateBtn) {
+                    generateBtn.disabled = false;
+                    generateBtn.innerHTML = originalBtnText;
+                }
+
+                if (data.status === 'success') {
+                    statusMessage.textContent = '生成完成，准备下载音频...';
+                    if (videoEl) {
+                        fetchAndPlayAudio(videoEl, data.video_path, 10);
+                    }
+                } else {
+                    statusMessage.textContent = '生成失败: ' + (data.message || '未知错误');
+                }
+            })
+            .catch(err => {
+                console.error('错误:', err);
+                statusMessage.textContent = '网络请求出错';
+                if (generateBtn) {
+                    generateBtn.disabled = false;
+                    generateBtn.innerHTML = originalBtnText;
+                }
+            });
+    });
+}
+
+// 3. 绑定 GeneFace++ 相关事件
+// 注意：这些绑定应该在 DOM 加载完成后执行
+document.addEventListener('DOMContentLoaded', function() {
+    // 初始化界面状态
+    toggleModelSettings();
+
+    // 绑定下拉框变更事件
+    const modelSelect = document.getElementById('model_name_select');
+    if (modelSelect) {
+        modelSelect.addEventListener('change', toggleModelSettings);
+    }
+
+    const videoSelect = document.getElementById('gf_video_id_select');
+    if (videoSelect) {
+        videoSelect.addEventListener('change', onGfVideoIdChange);
+    }
+    
+    // 绑定清除历史按钮
+    const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+    if (clearHistoryBtn) {
+        clearHistoryBtn.addEventListener('click', function() {
+            if(confirm('警告：确定要格式化对话记忆区吗？此操作不可逆。')) {
+                const btn = this;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 清除中...';
+                fetch('/clear_history', { method: 'POST' })
+                    .then(res => res.json())
+                    .then(data => {
+                        alert(data.message);
+                        if (statusMessage) {
+                            statusMessage.textContent = '记忆扇区已重置';
+                            statusMessage.style.color = 'var(--neon-cyan)';
+                        }
+                    })
+                    .catch(err => alert('系统错误：清除失败'))
+                    .finally(() => btn.innerHTML = originalText);
+            }
+        });
+    }
 });

@@ -136,8 +136,13 @@
                             <option value="GPU1">GPU 1</option>
                         </select>
                     </div>
-
-                    <button type="submit" class="generate-btn" id="submitBtn">开始训练</button>
+					
+					<div class="btn-group">
+						<button type="submit" class="generate-btn" id="submitBtn">开始训练</button>
+						<button type="button" class="generate-btn stop-btn" id="stopBtn" style="display: none; background: #e57373;">停止训练</button>
+					</div>
+					
+                    <!--<button type="submit" class="generate-btn" id="submitBtn">开始训练</button>-->
                 </form>
 
                 <div id="geneface_status" style="margin-top: 10px; ">
