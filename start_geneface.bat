@@ -52,7 +52,7 @@ docker run -d ^
     -v "%USERPROFILE%\.cache":/root/.cache ^
     -v "%PROJECT_DIR%\GeneFace":/data/geneface ^
     --restart unless-stopped ^
-    genfaceplus:0219 ^
+    genefaceplus:0219 ^
     bash -c "source /root/miniconda3/etc/profile.d/conda.sh && conda activate pytorch && cd /data/geneface && python api_server.py"
 
 :WAIT_SERVICE

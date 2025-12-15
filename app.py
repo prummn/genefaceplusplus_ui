@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, jsonify
 from pydub import AudioSegment
 import os
 from backend.video_generator import generate_video
-from backend.model_trainer import train_model
+from backend.model_trainer import train_model,stop_train_remote
 from backend.chat_engine import chat_response, clear_chat_history
 from werkzeug.utils import secure_filename
 from datetime import datetime
@@ -91,6 +91,23 @@ def model_training():
             return jsonify({'status': 'success', 'video_path': result})
 
     return render_template('model_training.html')
+
+# 新增：停止训练任务路由
+@app.route('/geneface/stop/<task_id>', methods=['POST'])
+def geneface_stop(task_id):
+    """停止指定 ID 的训练任务"""
+    if request.method == 'POST':
+        cmd = request.form.get('cmd', type=int)
+        result = stop_train_remote(cmd)
+
+        # 确保返回 JSON
+        if isinstance(result, dict):
+            return jsonify(result)
+        else:
+            return jsonify({'status': 'success', 'video_path': result})
+
+    return render_template('model_training.html')
+
 
 
 # 实时对话系统界面
