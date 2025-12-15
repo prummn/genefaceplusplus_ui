@@ -265,35 +265,39 @@ def chat_response(data):
     # 步骤 4: 视频生成 (GeneFace++)
     # -----------------------------------------------
     if model_name == "GeneFace++":
-        print(f"[chat_engine] 4. 触发 GeneFace++ 推理...")
+        print("[chat_engine] 检测到 GeneFace++ 模型，开始生成视频...")
 
-        # 4.1 移动/复制音频到 GeneFace 输入目录
-        # 生成唯一文件名防止冲突
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        gf_audio_filename = f"chat_{timestamp}.wav"
-        gf_audio_path_abs = os.path.join(GENEFACE_AUDIO_INPUT_DIR, gf_audio_filename)
+        # 1. 复制音频到 GeneFace 目录
+        gf_audio_dir = os.path.join(BASE_DIR, "GeneFace", "data", "raw", "val_wavs")
+        os.makedirs(gf_audio_dir, exist_ok=True)
 
-        shutil.copy(FINAL_AUDIO_PATH_SERVER, gf_audio_path_abs)
-        print(f"[chat_engine] 音频已复制到: {gf_audio_path_abs}")
+        # 使用时间戳生成唯一文件名，避免冲突
+        gf_filename = f"chat_{int(time.time())}.wav"
+        gf_target_path = os.path.join(gf_audio_dir, gf_filename)
 
-        # 4.2 构造参数调用 generate_video
-        # 注意：backend/video_generator.py 需要的是相对于 WORK_DIR 的音频路径
-        # 或者是它可以识别的路径。根据之前逻辑，传 'data/raw/val_wavs/filename.wav'
-        gf_audio_path_rel = f"data/raw/val_wavs/{gf_audio_filename}"
+        try:
+            shutil.copy(FINAL_AUDIO_PATH_SERVER, gf_target_path)
+            print(f"[chat_engine] 音频已复制到 GeneFace: {gf_target_path}")
 
-        gen_data = {
-            "model_name": "GeneFace++",
-            "gf_head_ckpt": data.get('gf_head_ckpt'),
-            "gf_torso_ckpt": data.get('gf_torso_ckpt'),
-            "gf_audio_path": gf_audio_path_rel,
-            "gpu_choice": "GPU0"  # 默认
-        }
+            # 2. 构造 GeneFace++ 需要的参数
+            # 注意：data 中已经包含了 gf_head_ckpt 和 gf_torso_ckpt
+            # 我们只需要补充 gf_audio_path (相对路径)
+            gf_data = data.copy()
+            gf_data['gf_audio_path'] = f"data/raw/val_wavs/{gf_filename}"
 
-        video_path = generate_video(gen_data)
-        print(f"[chat_engine] 视频生成完成: {video_path}")
-        return video_path
+            # 3. 调用 video_generator 生成视频
+            # generate_video 会返回相对于 static 的路径，例如 "static/videos/geneface_output.mp4"
+            video_path = generate_video(gf_data)
 
-    else:
-        # 如果是其他模型，或者是 SyncTalk (这里暂时只返回音频，或你可以按需调用其他生成器)
-        # 目前前端 chatVideo 兼容音频播放，所以返回音频路径即可
-        return FINAL_AUDIO_PATH_WEB
+            if video_path and os.path.exists(os.path.join(BASE_DIR, video_path)):
+                print(f"[chat_engine] 视频生成成功: {video_path}")
+                return video_path
+            else:
+                print("[chat_engine] 视频生成失败，回退到仅音频")
+
+        except Exception as e:
+            print(f"[chat_engine] GeneFace++ 处理出错: {e}")
+            import traceback
+            traceback.print_exc()
+
+    return FINAL_AUDIO_PATH_WEB
