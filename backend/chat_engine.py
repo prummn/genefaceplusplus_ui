@@ -101,7 +101,7 @@ def chat_response(data):
     voice_choice = data.get('voice_clone', 'zhb')
     voice_model_type = data.get('voice_clone_model', 'RVC')
     llm_model = data.get('api_choice', 'glm-4.5-flash')
-    digital_human_model = data.get('model_name', 'SyncTalk')
+    model_name = data.get('model_name', 'SyncTalk')
 
     ref_audio_path_host = os.path.join(IO_INPUT_AUDIO, f"{voice_choice}.wav")
     ref_text_path_host = os.path.join(IO_INPUT_TEXT, f"{voice_choice}.txt")
@@ -134,7 +134,6 @@ def chat_response(data):
         if result.stdout:
             print("============= ASR/LLM Pipeline Log =============")
             print(result.stdout)
-            print("================================================")
             
         # 提取用户提问
         user_q = "未知"
@@ -145,7 +144,6 @@ def chat_response(data):
                     if len(parts) > 1:
                         user_q = parts[1].strip()
         
-        print(f"[chat_engine] 解析到的提问: {user_q}")
 
         # 读取 LLM 回复
         if not os.path.exists(LATEST_RESPONSE_FILE):
@@ -153,7 +151,6 @@ def chat_response(data):
         
         with open(LATEST_RESPONSE_FILE, 'r', encoding='utf-8') as f:
             ai_text = f.read().strip()
-        print(f"[chat_engine] AI 回复: {ai_text[:30]}...")
 
     except subprocess.CalledProcessError as e:
         print(f"Pipeline Error (Exit Code {e.returncode}):")
@@ -245,7 +242,36 @@ def chat_response(data):
     # -----------------------------------------------
     # 步骤 4: 视频生成 (GeneFace++)
     # -----------------------------------------------
-    if digital_human_model == "GeneFace++":
-        pass
-    
-    return FINAL_AUDIO_PATH_WEB
+    if model_name == "GeneFace++":
+        print(f"[chat_engine] 4. 触发 GeneFace++ 推理...")
+
+        # 4.1 移动/复制音频到 GeneFace 输入目录
+        # 生成唯一文件名防止冲突
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        gf_audio_filename = f"chat_{timestamp}.wav"
+        gf_audio_path_abs = os.path.join(GENEFACE_AUDIO_INPUT_DIR, gf_audio_filename)
+
+        shutil.copy(FINAL_AUDIO_PATH_SERVER, gf_audio_path_abs)
+        print(f"[chat_engine] 音频已复制到: {gf_audio_path_abs}")
+
+        # 4.2 构造参数调用 generate_video
+        # 注意：backend/video_generator.py 需要的是相对于 WORK_DIR 的音频路径
+        # 或者是它可以识别的路径。根据之前逻辑，传 'data/raw/val_wavs/filename.wav'
+        gf_audio_path_rel = f"data/raw/val_wavs/{gf_audio_filename}"
+
+        gen_data = {
+            "model_name": "GeneFace++",
+            "gf_head_ckpt": data.get('gf_head_ckpt'),
+            "gf_torso_ckpt": data.get('gf_torso_ckpt'),
+            "gf_audio_path": gf_audio_path_rel,
+            "gpu_choice": "GPU0"  # 默认
+        }
+
+        video_path = generate_video(gen_data)
+        print(f"[chat_engine] 视频生成完成: {video_path}")
+        return video_path
+
+    else:
+        # 如果是其他模型，或者是 SyncTalk (这里暂时只返回音频，或你可以按需调用其他生成器)
+        # 目前前端 chatVideo 兼容音频播放，所以返回音频路径即可
+        return FINAL_AUDIO_PATH_WEB
