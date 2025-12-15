@@ -43,6 +43,7 @@ static/videos/
 
 io/input
 io/output
+io/history
 
 RVC/conversation_log.txt
 RVC/latest_ai_response.txt

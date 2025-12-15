@@ -119,6 +119,9 @@ def chat_system():
             "model_param": request.form.get('model_param'),
             "voice_clone": request.form.get('voice_clone'),
             "api_choice": request.form.get('api_choice'),
+            # 补充缺失的参数
+            "gpu_choice": request.form.get('gpu_choice'),
+            "voice_clone_model": request.form.get('voice_clone_model'),
             # 新增：GeneFace++ 参数
             "gf_torso_ckpt": request.form.get('gf_torso_ckpt'),
             "gf_head_ckpt": request.form.get('gf_head_ckpt'),
@@ -179,6 +182,10 @@ def save_audio():
         print(f"!!!!!!!!!!!!!! [app.py] 严重错误: 修复音频文件失败 !!!!!!!!!!!!!!")
         print(f"Error: {e}")
         print("请确保 'ffmpeg' 已正确安装并_INCLUDED_在您 'RVC_cuda' 环境的 PATH 中。")
+        # 强制确保文件已写入磁盘，避免后续读取时的竞争条件
+        import time
+        time.sleep(0.1)
+
         # 返回一个错误，停止流程
         return jsonify({'status': 'error', 'message': f'后台处理音频文件失败: {e}'}), 500
     finally:
@@ -266,8 +273,61 @@ def geneface_tasks():
 
 @app.route('/geneface/models', methods=['GET'])
 def geneface_models():
-    """列出已训练模型"""
-    return jsonify(geneface_api_call("/models"))
+    """列出已训练模型 (直接扫描本地文件系统)"""
+    models = []
+    # 假设 GeneFace 目录在 BASE_DIR 下
+    ckpt_base = os.path.join(BASE_DIR, "GeneFace", "checkpoints", "motion2video_nerf")
+
+    if os.path.exists(ckpt_base):
+        video_models = {}
+
+        for name in os.listdir(ckpt_base):
+            full_path = os.path.join(ckpt_base, name)
+            if os.path.isdir(full_path):
+                if name.endswith('_head'):
+                    video_id = name[:-5]
+                    if video_id not in video_models:
+                        video_models[video_id] = {
+                            "video_id": video_id,
+                            "head_checkpoints": [],
+                            "torso_checkpoints": []
+                        }
+
+                    # 扫描 .ckpt 和 .pt 文件
+                    for root, dirs, files in os.walk(full_path):
+                        for f in files:
+                            if f.endswith(('.ckpt', '.pt')):
+                                # 构造相对路径，保持与 Docker 内部路径结构一致 (checkpoints/motion2video_nerf/...)
+                                # 这里我们需要返回相对于 GeneFace 根目录的路径
+                                rel_path = os.path.relpath(os.path.join(root, f), os.path.join(BASE_DIR, "GeneFace"))
+                                rel_path = rel_path.replace("\\", "/") # 统一为正斜杠
+                                video_models[video_id]["head_checkpoints"].append(rel_path)
+
+                elif name.endswith('_torso'):
+                    video_id = name[:-6]
+                    if video_id not in video_models:
+                        video_models[video_id] = {
+                            "video_id": video_id,
+                            "head_checkpoints": [],
+                            "torso_checkpoints": []
+                        }
+
+                    for root, dirs, files in os.walk(full_path):
+                        for f in files:
+                            if f.endswith(('.ckpt', '.pt')):
+                                rel_path = os.path.relpath(os.path.join(root, f), os.path.join(BASE_DIR, "GeneFace"))
+                                rel_path = rel_path.replace("\\", "/")
+                                video_models[video_id]["torso_checkpoints"].append(rel_path)
+
+        # 排序
+        for vid, data in video_models.items():
+            # 按修改时间排序
+            data["head_checkpoints"].sort(key=lambda x: os.path.getmtime(os.path.join(BASE_DIR, "GeneFace", x)) if os.path.exists(os.path.join(BASE_DIR, "GeneFace", x)) else 0, reverse=True)
+            data["torso_checkpoints"].sort(key=lambda x: os.path.getmtime(os.path.join(BASE_DIR, "GeneFace", x)) if os.path.exists(os.path.join(BASE_DIR, "GeneFace", x)) else 0, reverse=True)
+
+        models = list(video_models.values())
+
+    return jsonify(models)
 
 
 @app.route('/geneface/video/<video_id>')
@@ -346,6 +406,18 @@ def geneface_output_file(filename):
         return send_file(video_path, mimetype='video/mp4')
     else:
         return jsonify({"error": "视频不存在"}), 404
+
+
+@app.route('/list_ref_audios', methods=['GET'])
+def list_ref_audios():
+    """列出 io/input/audio 下的参考音频"""
+    audio_dir = os.path.join(BASE_DIR, "io", "input", "audio")
+    audios = []
+    if os.path.exists(audio_dir):
+        for f in os.listdir(audio_dir):
+            if f.lower().endswith(('.wav', '.mp3', '.m4a')):
+                audios.append(f)
+    return jsonify(audios)
 
 
 if __name__ == '__main__':

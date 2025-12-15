@@ -101,7 +101,7 @@ def chat_response(data):
     voice_choice = data.get('voice_clone', 'zhb')
     voice_model_type = data.get('voice_clone_model', 'RVC')
     llm_model = data.get('api_choice', 'glm-4.5-flash')
-    digital_human_model = data.get('model_name', 'SyncTalk')
+    model_name = data.get('model_name', 'SyncTalk')
 
     ref_audio_path_host = os.path.join(IO_INPUT_AUDIO, f"{voice_choice}.wav")
     ref_text_path_host = os.path.join(IO_INPUT_TEXT, f"{voice_choice}.txt")
@@ -120,6 +120,13 @@ def chat_response(data):
     # 步骤 1: 运行 Pipeline (ASR + LLM)
     # -----------------------------------------------
     try:
+        # 清理旧的回复文件，防止读取到历史数据
+        if os.path.exists(LATEST_RESPONSE_FILE):
+            try:
+                os.remove(LATEST_RESPONSE_FILE)
+            except Exception:
+                pass
+
         cmd_pipeline = [
             PYTHON_EXECUTABLE,
             PIPELINE_SCRIPT,
@@ -127,10 +134,25 @@ def chat_response(data):
             "--model", llm_model
         ]
         
-        # 【修改】开启 errors='replace' 防止编码错误，并打印输出以便调试
-        result = subprocess.run(cmd_pipeline, check=True, cwd=BACKEND_DIR, capture_output=True, text=True, encoding='gbk', errors='replace')
-        
-        # 调试：打印 Pipeline 的完整输出，方便定位 ASR 错误
+        # 设置环境变量，强制 Python 子进程输出 UTF-8，避免 Windows GBK 问题
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = "utf-8"
+
+        print(f"[chat_engine] 启动 Pipeline: {' '.join(cmd_pipeline)}")
+
+        # 使用 utf-8 解码，配合 PYTHONIOENCODING
+        result = subprocess.run(
+            cmd_pipeline,
+            check=True,
+            cwd=BACKEND_DIR,
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+            env=env
+        )
+
+        # 调试：打印 Pipeline 的完整输出
         if result.stdout:
             print("============= ASR/LLM Pipeline Log =============")
             print(result.stdout)
@@ -245,7 +267,40 @@ def chat_response(data):
     # -----------------------------------------------
     # 步骤 4: 视频生成 (GeneFace++)
     # -----------------------------------------------
-    if digital_human_model == "GeneFace++":
-        pass
-    
+    if model_name == "GeneFace++":
+        print("[chat_engine] 检测到 GeneFace++ 模型，开始生成视频...")
+
+        # 1. 复制音频到 GeneFace 目录
+        gf_audio_dir = os.path.join(BASE_DIR, "GeneFace", "data", "raw", "val_wavs")
+        os.makedirs(gf_audio_dir, exist_ok=True)
+
+        # 使用时间戳生成唯一文件名，避免冲突
+        gf_filename = f"chat_{int(time.time())}.wav"
+        gf_target_path = os.path.join(gf_audio_dir, gf_filename)
+
+        try:
+            shutil.copy(FINAL_AUDIO_PATH_SERVER, gf_target_path)
+            print(f"[chat_engine] 音频已复制到 GeneFace: {gf_target_path}")
+
+            # 2. 构造 GeneFace++ 需要的参数
+            # 注意：data 中已经包含了 gf_head_ckpt 和 gf_torso_ckpt
+            # 我们只需要补充 gf_audio_path (相对路径)
+            gf_data = data.copy()
+            gf_data['gf_audio_path'] = f"data/raw/val_wavs/{gf_filename}"
+
+            # 3. 调用 video_generator 生成视频
+            # generate_video 会返回相对于 static 的路径，例如 "static/videos/geneface_output.mp4"
+            video_path = generate_video(gf_data)
+
+            if video_path and os.path.exists(os.path.join(BASE_DIR, video_path)):
+                print(f"[chat_engine] 视频生成成功: {video_path}")
+                return video_path
+            else:
+                print("[chat_engine] 视频生成失败，回退到仅音频")
+
+        except Exception as e:
+            print(f"[chat_engine] GeneFace++ 处理出错: {e}")
+            import traceback
+            traceback.print_exc()
+
     return FINAL_AUDIO_PATH_WEB
