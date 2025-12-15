@@ -90,10 +90,16 @@ def geneface_api_call(endpoint, method="GET", data=None):
 
     try:
         if method == "GET":
-            r = requests.get(url, timeout=30)
+            r = requests.get(url, timeout=60)
         else:
-            r = requests.post(url, json=data, timeout=30)
-        result = r.json()
+            r = requests.post(url, json=data, timeout=60)
+
+        try:
+            result = r.json()
+        except ValueError:
+            # 打印原始文本，方便排查
+            print(f"[GeneFace API] 非 JSON 响应: {r.status_code}, body={r.text[:200]}")
+            return {"status": "error", "message": f"非 JSON 响应: {r.status_code}"}
         print(f"[GeneFace API] 响应: {result}")
         return result
     except Exception as e:
@@ -189,3 +195,5 @@ def train_geneface(data):
         return geneface_api_call("/train/torso", "POST", payload)
 
     return {"status": "error", "message": f"未知阶段: {train_stage}"}
+def stop_train_remote(cmd):
+    return geneface_api_call("/stop_train_local", "POST", {"stop_train": cmd})                       

@@ -244,7 +244,7 @@ def preprocessing_worker(task_id, video_id, gpu_id="0", max_updates_head=40000, 
 
         update_task(task_id, current_step="6/10 提取分割图")
         log("步骤 6/10: 提取分割图")
-        cmd = f'python data_gen/utils/process_video/extract_segment_imgs.py --ds_name=nerf --vid_dir=data/raw/videos/{video_id}.mp4'
+        cmd = f'python data_gen/utils/process_video/extract_segment_imgs.py --ds_name=nerf --vid_dir=data/raw/videos/{video_id}.mp4 --force_single_process --total_gpus=0'
         result = run_command(cmd, WORK_DIR, env)
         if result["returncode"] != 0:
             raise Exception(f"分割图提取失败: {result['stderr']}")
@@ -353,6 +353,58 @@ def torso_training_worker(task_id, video_id, head_ckpt, gpu_id="0"):
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({"status": "ok", "service": "GeneFace++ API", "work_dir": WORK_DIR})
+
+
+@app.route('/stop_train_local', methods=['POST'])
+def stop_train():
+    data = request.get_json(silent=True) or {}
+    stop_flag = data.get('stop_train')
+
+    if stop_flag !=0:
+        log("收到停止训练请求: stop_train=1")
+        
+    if (stop_flag==1):
+        find_cmd = """ ps -ef | grep -E "ffmpeg |data_gen" | grep -v '/bin' | grep -v grep | grep -v defunct | awk '{print $2}' """
+    else:
+        find_cmd = """ ps -ef | grep -E "GeneFace_worker | python tasks" | grep -v '/bin' | grep -v grep | grep -v defunct | awk '{print $2}' """
+    
+    log("开始查找 GeneFace 训练进程...")
+    find_result = run_command(find_cmd)
+
+    pids = find_result["stdout"].strip().split("\n")
+    pids = [pid for pid in pids if pid.strip()]
+
+    if not pids:
+        log("未找到运行中的 GeneFace 训练进程", "INFO")
+        return jsonify({
+            "status": "success",
+            "message": "未找到运行中的 GeneFace 训练进程"
+        })
+        
+    last_pid = pids[-1]
+    log(f"找到需要终止的最新进程 PID: {last_pid}")
+
+    kill_cmd = f"kill {last_pid}"
+    log(f"开始终止本次 GeneFace 训练进程: {kill_cmd}")
+
+
+    kill_result = run_command(kill_cmd)
+
+    if kill_result["returncode"] == 0:
+        log(f"成功终止进程 PID: {last_pid}", "INFO")
+        return jsonify({
+            "status": "success",
+            "message": f"成功终止进程 PID: {last_pid}",
+            "killed_pids": pids
+        })
+    else:
+        log(f"终止进程失败: {kill_result['stderr']}", "ERROR")
+        return jsonify({
+            "status": "error",
+            "message": f"终止进程失败: {kill_result['stderr']}",
+            "failed_pids": pids
+        }), 500
+
 
 
 @app.route('/videos', methods=['GET'])
