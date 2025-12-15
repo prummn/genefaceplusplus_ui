@@ -120,6 +120,13 @@ def chat_response(data):
     # 步骤 1: 运行 Pipeline (ASR + LLM)
     # -----------------------------------------------
     try:
+        # 清理旧的回复文件，防止读取到历史数据
+        if os.path.exists(LATEST_RESPONSE_FILE):
+            try:
+                os.remove(LATEST_RESPONSE_FILE)
+            except Exception:
+                pass
+
         cmd_pipeline = [
             PYTHON_EXECUTABLE,
             PIPELINE_SCRIPT,
@@ -127,10 +134,25 @@ def chat_response(data):
             "--model", llm_model
         ]
         
-        # 【修改】开启 errors='replace' 防止编码错误，并打印输出以便调试
-        result = subprocess.run(cmd_pipeline, check=True, cwd=BACKEND_DIR, capture_output=True, text=True, encoding='gbk', errors='replace')
-        
-        # 调试：打印 Pipeline 的完整输出，方便定位 ASR 错误
+        # 设置环境变量，强制 Python 子进程输出 UTF-8，避免 Windows GBK 问题
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = "utf-8"
+
+        print(f"[chat_engine] 启动 Pipeline: {' '.join(cmd_pipeline)}")
+
+        # 使用 utf-8 解码，配合 PYTHONIOENCODING
+        result = subprocess.run(
+            cmd_pipeline,
+            check=True,
+            cwd=BACKEND_DIR,
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+            env=env
+        )
+
+        # 调试：打印 Pipeline 的完整输出
         if result.stdout:
             print("============= ASR/LLM Pipeline Log =============")
             print(result.stdout)

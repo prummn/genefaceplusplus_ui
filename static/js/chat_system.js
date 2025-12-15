@@ -176,26 +176,16 @@ function loadGeneFaceModels() {
             });
             
             if (!hasValidModels) {
-                 // 如果没有数据，提供示例选项以防界面空白
+                 // 如果没有数据，提示用户
                  const opt = document.createElement('option');
-                 opt.value = "may_torso";
-                 opt.textContent = "may_torso (示例)";
+                 opt.value = "";
+                 opt.textContent = "未找到模型 (请检查 checkpoints 目录)";
                  videoSelect.appendChild(opt);
-                 
-                 const opt2 = document.createElement('option');
-                 opt2.value = "zhb_torso";
-                 opt2.textContent = "zhb_torso (示例)";
-                 videoSelect.appendChild(opt2);
             }
         })
         .catch(err => {
             console.error("加载模型失败:", err);
-            videoSelect.innerHTML = '<option value="">加载失败，请检查后端</option>';
-            // Fallback 示例
-            const opt = document.createElement('option');
-            opt.value = "may_torso";
-            opt.textContent = "may_torso (示例)";
-            videoSelect.appendChild(opt);
+            videoSelect.innerHTML = '<option value="">加载失败，请检查后端日志</option>';
         });
 }
 
@@ -236,12 +226,15 @@ function onGfVideoIdChange() {
             if(headInput) headInput.value = `checkpoints/motion2video_nerf/${videoId}_head`;
         }
     } else {
-        // Fallback: 如果没有后端数据（例如使用的是示例选项）
-        const opt = document.createElement('option');
-        opt.value = 'last.ckpt';
-        opt.textContent = 'last.ckpt (自动检测)';
-        ckptSelect.appendChild(opt);
-        if(headInput) headInput.value = `checkpoints/motion2video_nerf/${videoId}_head`;
+        // Fallback: 如果没有后端数据
+        if (videoId) {
+             // 尝试根据 videoId 猜测路径 (仅作为最后的手段)
+             const opt = document.createElement('option');
+             opt.value = `checkpoints/motion2video_nerf/${videoId}_torso/last.ckpt`;
+             opt.textContent = 'last.ckpt (自动推测)';
+             ckptSelect.appendChild(opt);
+             if(headInput) headInput.value = `checkpoints/motion2video_nerf/${videoId}_head`;
+        }
     }
 }
 
@@ -261,6 +254,39 @@ function toggleModelSettings() {
         if(gfGroup) gfGroup.classList.remove('active');
         if(commonGroup) commonGroup.style.display = 'block';
     }
+}
+
+// 新增：加载参考音频列表
+function loadRefAudios() {
+    const voiceSelect = document.getElementById('voice_clone_select');
+    if (!voiceSelect) return;
+
+    fetch('/list_ref_audios')
+        .then(res => res.json())
+        .then(data => {
+            if (data && data.length > 0) {
+                voiceSelect.innerHTML = ''; // 清空现有选项
+                data.forEach(audioName => {
+                    const opt = document.createElement('option');
+                    // 假设后端只需要文件名（不带扩展名）作为 voice_clone 参数
+                    // 或者如果后端需要完整路径，这里需要调整
+                    // 根据之前的代码逻辑：voice_choice = data.get('voice_clone', 'zhb')
+                    // 并且 ref_audio_path_host = os.path.join(IO_INPUT_AUDIO, f"{voice_choice}.wav")
+                    // 所以这里应该只传递文件名（不带扩展名）
+                    const nameWithoutExt = audioName.replace(/\.[^/.]+$/, "");
+                    opt.value = nameWithoutExt;
+                    opt.textContent = audioName;
+                    voiceSelect.appendChild(opt);
+                });
+            } else {
+                // 如果没有找到音频，保留默认或显示提示
+                voiceSelect.innerHTML = '<option value="zhb">zhb.wav (默认)</option>';
+            }
+        })
+        .catch(err => {
+            console.error("加载参考音频失败:", err);
+            // 保持默认选项
+        });
 }
 
 // --- 界面交互与事件监听 ---
@@ -340,6 +366,7 @@ if (chatForm) {
 document.addEventListener('DOMContentLoaded', function() {
     // 初始化界面状态
     toggleModelSettings();
+    loadRefAudios(); // 加载参考音频
 
     // 绑定下拉框变更事件
     const modelSelect = document.getElementById('model_name_select');
@@ -375,3 +402,4 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+

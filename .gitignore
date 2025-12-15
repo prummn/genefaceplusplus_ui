@@ -20,8 +20,8 @@ conversation_log.txt
 latest_ai_response.txt
 latest_user_aud.wav
 latest_user_aud_mono.wav
+latest_user_aud_mono.mp3
 chat_history.json
-chunk_*.wav
 io/temp
 .env
 
@@ -43,3 +43,7 @@ static/videos/
 
 io/input
 io/output
+io/history
+
+RVC/conversation_log.txt
+RVC/latest_ai_response.txt
