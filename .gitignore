@@ -40,3 +40,6 @@ static/videos/
 
 io/input
 io/output
+
+RVC/conversation_log.txt
+RVC/latest_ai_response.txt
