@@ -138,7 +138,7 @@ def save_audio():
     audio_file.save(raw_file_path)
 
     # 2. 定义我们最终想要的、修复后的、固定的 WAV 路径
-    final_wav_path = os.path.join(save_dir, 'aud.wav')
+    final_wav_path = os.path.join(save_dir, 'latest_user_aud.wav')
 
     # 3. 使用 pydub 加载这个(可能损坏的)文件，并重新导出
     #    pydub (和 ffmpeg) 擅长猜测原始格式
@@ -176,7 +176,7 @@ def save_audio():
     # --- 修复流程结束 ---
 
     # 5. 返回成功信息
-    web_path = '/SyncTalk/audio/aud.wav'
+    web_path = '/io/history/latest_usr_aud.wav'
     return jsonify({'status': 'success', 'message': '音频保存并修复成功', 'file_path': web_path})
 
 

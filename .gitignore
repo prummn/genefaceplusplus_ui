@@ -18,8 +18,11 @@ models_zh/
 temp_rvc_text.txt
 conversation_log.txt
 latest_ai_response.txt
+latest_user_aud.wav
+latest_user_aud_mono.wav
 chat_history.json
 chunk_*.wav
+io/temp
 .env
 
 GeneFace/checkpoints/
