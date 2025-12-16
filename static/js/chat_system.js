@@ -256,37 +256,96 @@ function toggleModelSettings() {
     }
 }
 
-// 新增：加载参考音频列表
-function loadRefAudios() {
+// --- 参考音频加载与上传模块 ---
+
+// 加载参考音频列表 (增加 selectedValue 参数用于自动选中)
+function loadRefAudios(selectedValue = null) {
     const voiceSelect = document.getElementById('voice_clone_select');
     if (!voiceSelect) return;
+
+    // 如果不是为了刷新选中某个特定值，才显示加载状态，避免用户体验跳动
+    if (!selectedValue) {
+        voiceSelect.innerHTML = '<option>正在扫描音频...</option>';
+    }
 
     fetch('/list_ref_audios')
         .then(res => res.json())
         .then(data => {
             if (data && data.length > 0) {
                 voiceSelect.innerHTML = ''; // 清空现有选项
-                data.forEach(audioName => {
+                data.forEach(filename => {
                     const opt = document.createElement('option');
-                    // 假设后端只需要文件名（不带扩展名）作为 voice_clone 参数
-                    // 或者如果后端需要完整路径，这里需要调整
-                    // 根据之前的代码逻辑：voice_choice = data.get('voice_clone', 'zhb')
-                    // 并且 ref_audio_path_host = os.path.join(IO_INPUT_AUDIO, f"{voice_choice}.wav")
-                    // 所以这里应该只传递文件名（不带扩展名）
-                    const nameWithoutExt = audioName.replace(/\.[^/.]+$/, "");
-                    opt.value = nameWithoutExt;
-                    opt.textContent = audioName;
+                    // 后端 chat_engine.py 期望的是不带后缀的文件名作为 voice_clone 参数
+                    const nameWithoutExt = filename.replace(/\.[^/.]+$/, "");
+                    
+                    opt.value = nameWithoutExt; 
+                    opt.textContent = `io/input/audio/${filename}`;
+                    
                     voiceSelect.appendChild(opt);
                 });
+
+                // 如果指定了要选中的值（例如刚上传的文件）
+                if (selectedValue) {
+                    // 处理传入的文件名，去除后缀以匹配 option value
+                    const valToSelect = selectedValue.replace(/\.[^/.]+$/, "");
+                    voiceSelect.value = valToSelect;
+                }
             } else {
-                // 如果没有找到音频，保留默认或显示提示
-                voiceSelect.innerHTML = '<option value="zhb">zhb.wav (默认)</option>';
+                voiceSelect.innerHTML = '<option value="">未找到音频文件</option>';
             }
         })
         .catch(err => {
             console.error("加载参考音频失败:", err);
-            // 保持默认选项
+            voiceSelect.innerHTML = '<option value="zhb">zhb (默认 - 加载失败)</option>';
         });
+}
+
+// 处理上传按钮点击
+const uploadRefBtn = document.getElementById('uploadRefAudioBtn');
+const refAudioInput = document.getElementById('refAudioInput');
+
+if (uploadRefBtn && refAudioInput) {
+    uploadRefBtn.addEventListener('click', () => {
+        refAudioInput.click(); // 触发文件选择
+    });
+
+    refAudioInput.addEventListener('change', function() {
+        if (this.files && this.files.length > 0) {
+            const file = this.files[0];
+            const formData = new FormData();
+            formData.append('audio', file);
+
+            // 临时改变按钮状态
+            const originalHtml = uploadRefBtn.innerHTML;
+            uploadRefBtn.disabled = true;
+            uploadRefBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 转码中...';
+
+            fetch('/upload_ref_audio', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // 上传成功，刷新列表并选中新文件
+                    loadRefAudios(data.filename);
+                    alert(`上传成功: ${data.filename}`);
+                } else {
+                    alert('上传失败: ' + data.message);
+                }
+            })
+            .catch(err => {
+                console.error("上传错误:", err);
+                alert('上传出错，请检查网络或控制台');
+            })
+            .finally(() => {
+                // 恢复按钮状态并清空 input，以便允许重复上传同名文件
+                uploadRefBtn.disabled = false;
+                uploadRefBtn.innerHTML = originalHtml;
+                refAudioInput.value = ''; 
+            });
+        }
+    });
 }
 
 // --- 界面交互与事件监听 ---

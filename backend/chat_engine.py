@@ -109,12 +109,37 @@ def chat_response(data):
     if not os.path.exists(ref_audio_path_host):
         print(f"[Warn] 参考音频不存在: {ref_audio_path_host}")
     
+    # -----------------------------------------------
+    # 【新增】检测并生成参考音频文本
+    # -----------------------------------------------
+    if not os.path.exists(ref_text_path_host):
+        print(f"[Info] 检测到参考音频文本缺失: {ref_text_path_host}")
+        if os.path.exists(ref_audio_path_host):
+            print(f"[Info] 正在调用 ASR 为参考音频生成字幕...")
+            try:
+                cmd_asr = [
+                    PYTHON_EXECUTABLE,
+                    PIPELINE_SCRIPT,
+                    "--mode", "asr",
+                    "--input", ref_audio_path_host,
+                    "--output_file", ref_text_path_host
+                ]
+                # 运行 ASR 模式
+                subprocess.run(cmd_asr, check=True, cwd=BACKEND_DIR, capture_output=True, text=True, encoding='gbk', errors='replace')
+                print(f"[Info] 参考音频字幕生成成功。")
+            except subprocess.CalledProcessError as e:
+                print(f"[Warn] 参考音频 ASR 失败: {e.stderr}")
+        else:
+            print(f"[Warn] 无法生成字幕，因为参考音频文件也不存在。")
+
+    # 读取参考文本
     ref_text_content = ""
     if os.path.exists(ref_text_path_host):
         with open(ref_text_path_host, 'r', encoding='utf-8') as f:
             ref_text_content = f.read().strip()
     
     print(f"[Info] 语音模型: {voice_model_type} | 参考音频: {os.path.basename(ref_audio_path_host)}")
+
 
     # -----------------------------------------------
     # 步骤 1: 运行 Pipeline (ASR + LLM)

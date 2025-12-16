@@ -11,8 +11,6 @@ SyncTalk/
 
 GPT-SoVITS/
 
-test_data/
-
 models_zh/
 
 temp_rvc_text.txt
@@ -24,6 +22,9 @@ latest_user_aud_mono.mp3
 chat_history.json
 io/temp
 .env
+
+CosyVoice/*
+!CosyVoice/run.py
 
 GeneFace/checkpoints/
 !GeneFace/checkpoints/.gitkeep
