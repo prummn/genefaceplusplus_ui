@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CopilotDiffPersistence">
+    <option name="pendingDiffs">
+      <map>
+        <entry key="$PROJECT_DIR$/debug_models.py">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/debug_models.py" />
+              <option name="updatedContent" value="&#10;import os&#10;import json&#10;&#10;BASE_DIR = os.getcwd()&#10;ckpt_base = os.path.join(BASE_DIR, &quot;GeneFace&quot;, &quot;checkpoints&quot;, &quot;motion2video_nerf&quot;)&#10;&#10;print(f&quot;Checking base dir: {ckpt_base}&quot;)&#10;&#10;models = []&#10;&#10;if os.path.exists(ckpt_base):&#10;    video_models = {}&#10;    for name in os.listdir(ckpt_base):&#10;        full_path = os.path.join(ckpt_base, name)&#10;        if os.path.isdir(full_path):&#10;            if name.endswith('_head'):&#10;                video_id = name[:-5]&#10;                if video_id not in video_models:&#10;                    video_models[video_id] = {&quot;video_id&quot;: video_id, &quot;head_checkpoints&quot;: [], &quot;torso_checkpoints&quot;: []}&#10;                for root, dirs, files in os.walk(full_path):&#10;                    for f in files:&#10;                        if f.endswith(('.ckpt', '.pt')):&#10;                            rel_path = os.path.relpath(os.path.join(root, f), os.path.join(BASE_DIR, &quot;GeneFace&quot;))&#10;                            rel_path = rel_path.replace(&quot;\\&quot;, &quot;/&quot;)&#10;                            video_models[video_id][&quot;head_checkpoints&quot;].append(rel_path)&#10;            elif name.endswith('_torso'):&#10;                video_id = name[:-6]&#10;                if video_id not in video_models:&#10;                    video_models[video_id] = {&quot;video_id&quot;: video_id, &quot;head_checkpoints&quot;: [], &quot;torso_checkpoints&quot;: []}&#10;                for root, dirs, files in os.walk(full_path):&#10;                    for f in files:&#10;                        if f.endswith(('.ckpt', '.pt')):&#10;                            rel_path = os.path.relpath(os.path.join(root, f), os.path.join(BASE_DIR, &quot;GeneFace&quot;))&#10;                            rel_path = rel_path.replace(&quot;\\&quot;, &quot;/&quot;)&#10;                            video_models[video_id][&quot;torso_checkpoints&quot;].append(rel_path)&#10;&#10;    for vid, data in video_models.items():&#10;        # Sort&#10;        pass&#10;&#10;    models = list(video_models.values())&#10;&#10;print(json.dumps(models, indent=2))&#10;" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>
