@@ -71,28 +71,19 @@ def append_to_log(user_text, assistant_reply, model_name):
     except Exception as e:
         print(f"[Log] 追加日志失败: {e}")
 
+# 【修改】移除了音频转换逻辑，直接返回原始路径
+# 因为前端上传时已经确保了格式转换，或者我们假设输入音频已经是处理好的 wav
 def convert_audio_if_needed(audio_file_path):
     """
-    尝试转换音频。如果失败（如缺少ffmpeg），则返回原始路径。
+    现在仅检查文件是否存在，不再进行格式转换。
+    上传接口或上游逻辑已确保音频格式正确 (wav/mp3)。
     """
-    file_name, file_extension = os.path.splitext(audio_file_path)
     if not os.path.exists(audio_file_path):
-        print(f"[Converter] 错误: 文件不存在 {audio_file_path}")
+        print(f"[Check] 错误: 文件不存在 {audio_file_path}")
         return None
         
-    output_path = file_name + "_mono.mp3"
-    
-    try:
-        # 尝试转换
-        audio = AudioSegment.from_file(audio_file_path)
-        audio = audio.set_channels(1)
-        audio.export(output_path, format="mp3")
-        # print(f"[Converter] 转换成功: {output_path}")
-        return output_path
-    except Exception as e:
-        print(f"[Converter] 转换遇到问题 (可能是ffmpeg未安装): {e}")
-        print(f"[Converter] ⚠️ 降级策略: 直接使用原始文件 {audio_file_path}")
-        return audio_file_path 
+    # print(f"[Check] 使用原始音频文件: {os.path.basename(audio_file_path)}")
+    return audio_file_path 
 
 def transcribe_audio_zhipu(audio_file_path):
     """ASR 识别"""
@@ -172,39 +163,71 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", "-i", required=True, help="输入音频路径")
     parser.add_argument("--model", "-m", default="glm-4.5-flash", help="LLM模型名称")
+    # 【新增】mode 参数和 output_file 参数
+    parser.add_argument("--mode", default="chat", choices=["chat", "asr"], help="运行模式: chat (对话) 或 asr (仅识别)")
+    parser.add_argument("--output_file", "-o", help="ASR模式下的文本保存路径")
+    
     args = parser.parse_args()
     
-    history = load_history()
-    
-    # 2. ASR
-    user_text = None
-    if os.path.exists(args.input):
-        converted_path = convert_audio_if_needed(args.input)
-        if converted_path:
-            user_text = transcribe_audio_zhipu(converted_path)
+    # ---------------------------
+    # 模式 A: 仅 ASR (用于参考音频识别)
+    # ---------------------------
+    if args.mode == "asr":
+        if os.path.exists(args.input):
+            # 直接使用输入文件，不再转换
+            converted_path = convert_audio_if_needed(args.input)
+            if converted_path:
+                text = transcribe_audio_zhipu(converted_path)
+                if text:
+                    print(f"[ASR_ONLY] 识别成功: {text}")
+                    # 如果指定了输出文件，则保存
+                    if args.output_file:
+                        os.makedirs(os.path.dirname(args.output_file), exist_ok=True)
+                        with open(args.output_file, 'w', encoding='utf-8') as f:
+                            f.write(text)
+                else:
+                    print("[ASR_ONLY] 识别结果为空")
+            else:
+                print("[ASR_ONLY] 音频检查失败")
         else:
-            print("[Main] 音频转换失败且无法使用原始文件")
+            print(f"[ASR_ONLY] 文件不存在: {args.input}")
+            
+    # ---------------------------
+    # 模式 B: 完整 Chat (ASR + LLM)
+    # ---------------------------
     else:
-        print(f"[Main] 输入文件不存在: {args.input}")
-
-    # 3. LLM
-    assistant_reply = ""
-    if user_text:
-        if "gemini" in args.model.lower():
-            assistant_reply = get_llm_response_gemini(user_text, args.model, history)
-        else:
-            assistant_reply = get_llm_response_zhipu(user_text, args.model, history)
-    else:
-        assistant_reply = "抱歉，我没有听清。"
-
-    print(f"[Main] AI 回答: {assistant_reply}")
-    
-    # 4. 保存
-    with open(LATEST_RESPONSE_FILE_PATH, 'w', encoding='utf-8') as f:
-        f.write(assistant_reply)
+        history = load_history()
         
-    if user_text:
-        history.append({"role": "user", "content": user_text})
-        history.append({"role": "assistant", "content": assistant_reply})
-        save_history(history)
-        append_to_log(user_text, assistant_reply, args.model)
+        # 1. ASR
+        user_text = None
+        if os.path.exists(args.input):
+            # 直接使用输入文件，不再转换
+            converted_path = convert_audio_if_needed(args.input)
+            if converted_path:
+                user_text = transcribe_audio_zhipu(converted_path)
+            else:
+                print("[Main] 音频文件检查失败")
+        else:
+            print(f"[Main] 输入文件不存在: {args.input}")
+
+        # 2. LLM
+        assistant_reply = ""
+        if user_text:
+            if "gemini" in args.model.lower():
+                assistant_reply = get_llm_response_gemini(user_text, args.model, history)
+            else:
+                assistant_reply = get_llm_response_zhipu(user_text, args.model, history)
+        else:
+            assistant_reply = "抱歉，我没有听清。"
+
+        print(f"[Main] AI 回答: {assistant_reply}")
+        
+        # 3. 保存和日志
+        with open(LATEST_RESPONSE_FILE_PATH, 'w', encoding='utf-8') as f:
+            f.write(assistant_reply)
+            
+        if user_text:
+            history.append({"role": "user", "content": user_text})
+            history.append({"role": "assistant", "content": assistant_reply})
+            save_history(history)
+            append_to_log(user_text, assistant_reply, args.model)

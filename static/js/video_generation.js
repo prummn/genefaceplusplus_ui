@@ -141,23 +141,27 @@ function loadRvcRefAudios() {
     const voiceSelect = document.getElementById('voice_clone');
     if (!voiceSelect) return;
 
+    voiceSelect.innerHTML = '<option>正在扫描...</option>';
+
     fetch('/list_ref_audios')
         .then(res => res.json())
         .then(data => {
             if (data && data.length > 0) {
                 voiceSelect.innerHTML = ''; // 清空现有选项
-                data.forEach(audioName => {
+                data.forEach(filename => {
                     const opt = document.createElement('option');
-                    opt.value = audioName; // 使用完整文件名
-                    opt.textContent = audioName;
+                    // RVC 同样使用不带后缀的名称
+                    const nameWithoutExt = filename.replace(/\.[^/.]+$/, "");
+                    opt.value = nameWithoutExt;
+                    opt.textContent = filename;
                     voiceSelect.appendChild(opt);
                 });
             } else {
-                voiceSelect.innerHTML = '<option value="zhb.wav">zhb.wav (默认)</option>';
+                voiceSelect.innerHTML = '<option value="zhb">zhb (默认)</option>';
             }
         })
         .catch(err => {
             console.error("加载参考音频失败:", err);
-            voiceSelect.innerHTML = '<option value="zhb.wav">zhb.wav (默认)</option>';
+            voiceSelect.innerHTML = '<option value="zhb">zhb (默认 - 加载失败)</option>';
         });
 }

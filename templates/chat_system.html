@@ -83,6 +83,7 @@
                             <span class="gf-sub-label">选择具体的 .ckpt 或 .pt 文件</span>
                             <select name="gf_torso_ckpt" id="gf_torso_ckpt_select">
                                 <option value="">-- 请先选择文件夹 --</option>
+                                <option value="last.ckpt">last.ckpt (示例)</option>
                             </select>
                         </div>
                         
@@ -99,12 +100,21 @@
                         </select>
                     </div>
 
-                    <!-- 3. 参考音频地址 -->
+                    <!-- 3. 参考音频地址 (修改布局) -->
                     <div class="form-group">
                         <label><i class="fas fa-file-audio"></i> 参考音频地址</label>
-                        <select name="voice_clone" id="voice_clone_select">
-                            <option value="">-- 加载中 --</option>
-                        </select>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <!-- 下拉框: flex: 1 自动占据剩余空间 -->
+                            <select name="voice_clone" id="voice_clone_select" style="flex: 1; width: 0;">
+                                <option value="">加载中...</option>
+                            </select>
+                            <!-- 上传按钮: 宽度自适应内容，不拉伸 -->
+                            <button type="button" id="uploadRefAudioBtn" class="generate-btn secondary-btn" style="flex: 0 0 auto; width: auto; padding: 0 10px; height: 38px; margin: 0; font-size: 0.85em; white-space: nowrap;" title="上传新音频">
+                                <i class="fas fa-upload"></i> 上传
+                            </button>
+                            <!-- 隐藏的文件输入框 -->
+                            <input type="file" id="refAudioInput" accept=".wav,.mp3,.m4a,.flac" style="display: none;">
+                        </div>
                     </div>
 
                     <!-- 4. GPU 选择 -->

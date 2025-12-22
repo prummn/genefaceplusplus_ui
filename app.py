@@ -1,49 +1,43 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_file
 from pydub import AudioSegment
 import os
-from backend.video_generator import generate_video
-from backend.model_trainer import train_model,stop_train_remote
-from backend.chat_engine import chat_response, clear_chat_history
+import uuid
+import re
+import time
 from werkzeug.utils import secure_filename
 from datetime import datetime
+
+# 引入后端模块
+from backend.video_generator import generate_video
 from backend.model_trainer import (
-    # geneface_check_health,
-    # geneface_get_task_status,
-    # geneface_list_tasks,
+    train_model, 
+    stop_train_remote,
     geneface_health,
     geneface_api_call,
     geneface_list_videos
 )
-from werkzeug.utils import secure_filename
-from flask import send_file
-import re
+from backend.chat_engine import chat_response, clear_chat_history
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(__name__)
 
+# --- 页面路由 ---
 
-# 首页
 @app.route('/')
 def index():
     return render_template('index.html')
 
-
-# 视频生成界面
 @app.route('/video_generation', methods=['GET', 'POST'])
 def video_generation():
     if request.method == 'POST':
-        # 修改这里：添加 voice_clone 参数提取
         data = {
             "model_name": request.form.get('model_name'),
             "model_param": request.form.get('model_param'),
             "ref_audio": request.form.get('ref_audio'),
             "gpu_choice": request.form.get('gpu_choice'),
-
-            # 核心修改：接收文本和音色
             "target_text": request.form.get('target_text'),
             "voice_clone": request.form.get('voice_clone'),
-
             # GeneFace++ 参数
             "gf_head_ckpt": request.form.get('gf_head_ckpt'),
             "gf_torso_ckpt": request.form.get('gf_torso_ckpt'),
@@ -59,11 +53,6 @@ def video_generation():
         default_video = 'videos/geneface_latest.mp4'
 
     return render_template('video_generation.html', default_video=default_video)
-
-
-
-# 模型训练界面
-# app.py 中检查这个路由
 
 @app.route('/model_training', methods=['GET', 'POST'])
 def model_training():
@@ -84,7 +73,6 @@ def model_training():
 
         result = train_model(data)
 
-        # 确保返回 JSON
         if isinstance(result, dict):
             return jsonify(result)
         else:
@@ -92,25 +80,6 @@ def model_training():
 
     return render_template('model_training.html')
 
-# 新增：停止训练任务路由
-@app.route('/geneface/stop/<task_id>', methods=['POST'])
-def geneface_stop(task_id):
-    """停止指定 ID 的训练任务"""
-    if request.method == 'POST':
-        cmd = request.form.get('cmd', type=int)
-        result = stop_train_remote(cmd)
-
-        # 确保返回 JSON
-        if isinstance(result, dict):
-            return jsonify(result)
-        else:
-            return jsonify({'status': 'success', 'video_path': result})
-
-    return render_template('model_training.html')
-
-
-
-# 实时对话系统界面
 @app.route('/chat_system', methods=['GET', 'POST'])
 def chat_system():
     if request.method == 'POST':
@@ -119,24 +88,38 @@ def chat_system():
             "model_param": request.form.get('model_param'),
             "voice_clone": request.form.get('voice_clone'),
             "api_choice": request.form.get('api_choice'),
-            # 补充缺失的参数
             "gpu_choice": request.form.get('gpu_choice'),
             "voice_clone_model": request.form.get('voice_clone_model'),
-            # 新增：GeneFace++ 参数
             "gf_torso_ckpt": request.form.get('gf_torso_ckpt'),
             "gf_head_ckpt": request.form.get('gf_head_ckpt'),
         }
 
-        # chat_response 现在会根据模型选择返回视频路径或音频路径
-        result_path = chat_response(data)
-
-        # 统一路径格式
-        result_path = "/" + result_path.replace("\\", "/") if not result_path.startswith("/") else result_path
-
-        return jsonify({'status': 'success', 'video_path': result_path})
+        try:
+            result_path = chat_response(data)
+            # 统一路径格式为 Web 路径
+            if result_path:
+                result_path = "/" + result_path.replace("\\", "/") if not result_path.startswith("/") else result_path
+            return jsonify({'status': 'success', 'video_path': result_path})
+        except Exception as e:
+            print(f"Chat System Error: {e}")
+            return jsonify({'status': 'error', 'message': str(e)}), 500
 
     return render_template('chat_system.html')
 
+# --- 功能接口 ---
+
+@app.route('/geneface/stop/<task_id>', methods=['POST'])
+def geneface_stop(task_id):
+    """停止指定 ID 的训练任务"""
+    cmd = request.form.get('cmd', type=int)
+    # 注意：这里假设 stop_train_remote 接受 task_id 或 cmd，根据原逻辑调整
+    # 如果原逻辑是用 cmd 参数控制，这里保留原样
+    result = stop_train_remote(cmd)
+    
+    if isinstance(result, dict):
+        return jsonify(result)
+    else:
+        return jsonify({'status': 'success', 'message': str(result)})
 
 @app.route('/save_audio', methods=['POST'])
 def save_audio():
@@ -147,73 +130,129 @@ def save_audio():
     if audio_file.filename == '':
         return jsonify({'status': 'error', 'message': '没有选择文件'})
 
-    # --- 修复流程开始 ---
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    save_dir = os.path.join(base_dir, 'io', "history")
+    save_dir = os.path.join(BASE_DIR, 'io', "history")
     os.makedirs(save_dir, exist_ok=True)
 
-    # 1. 先将浏览器发送的(可能损坏的)Blob保存到一个临时文件
-    # (我们不关心它的扩展名，因为 pydub 会自动检测)
     raw_file_path = os.path.join(save_dir, 'aud_raw_from_browser')
     audio_file.save(raw_file_path)
 
-    # 2. 定义我们最终想要的、修复后的、固定的 WAV 路径
     final_wav_path = os.path.join(save_dir, 'latest_user_aud.wav')
 
-    # 3. 使用 pydub 加载这个(可能损坏的)文件，并重新导出
-    #    pydub (和 ffmpeg) 擅长猜测原始格式
     try:
-        print(f"[app.py] 收到原始音频。正在从 {raw_file_path} 加载...")
-        # 加载文件 (pydub 会自动检测格式, 无论是 ogg, webm, 还是无头的 wav)
+        print(f"[app.py] 收到原始音频，正在从 {raw_file_path} 加载...")
         audio = AudioSegment.from_file(raw_file_path)
-
+        
         print(f"[app.py] 正在重新导出为标准 WAV: {final_wav_path}")
-
-        # 重新导出为标准的、带头的 WAV 文件
-        # 这时你可以强制设置参数，以确保 ASR 兼容：
-        # audio.set_channels(1) 设为单声道
-        # audio.set_frame_rate(16000) 设为 16kHz
-
+        # 强制转为单声道和16k采样率以兼容 ASR/RVC
+        audio = audio.set_channels(1).set_frame_rate(16000)
         audio.export(final_wav_path, format="wav")
-
         print(f"[app.py] 音频保存并修复成功。")
 
     except Exception as e:
         print(f"!!!!!!!!!!!!!! [app.py] 严重错误: 修复音频文件失败 !!!!!!!!!!!!!!")
         print(f"Error: {e}")
-        print("请确保 'ffmpeg' 已正确安装并_INCLUDED_在您 'RVC_cuda' 环境的 PATH 中。")
-        # 强制确保文件已写入磁盘，避免后续读取时的竞争条件
-        import time
-        time.sleep(0.1)
-
-        # 返回一个错误，停止流程
-        return jsonify({'status': 'error', 'message': f'后台处理音频文件失败: {e}'}), 500
+        return jsonify({'status': 'error', 'message': f'后台处理音频文件失败 (请检查ffmpeg): {e}'}), 500
     finally:
-        # 4. (可选) 清理临时的原始文件
         try:
             if os.path.exists(raw_file_path):
                 os.remove(raw_file_path)
-        except Exception as e:
-            print(f"[app.py] 清理临时文件 {raw_file_path} 失败: {e}")
-            pass  # 即使清理失败也不是大问题
+        except Exception:
+            pass
 
-    # --- 修复流程结束 ---
-
-    # 5. 返回成功信息
-    web_path = '/io/history/latest_usr_aud.wav'
-    return jsonify({'status': 'success', 'message': '音频保存并修复成功', 'file_path': web_path})
-
+    # 返回给前端的路径可以不包含盘符，用于展示或调试
+    return jsonify({'status': 'success', 'message': '音频保存并修复成功', 'file_path': 'io/history/latest_user_aud.wav'})
 
 @app.route('/clear_history', methods=['POST'])
 def clear_history():
+    """清除对话历史"""
     success, msg = clear_chat_history()
     if success:
         return jsonify({'status': 'success', 'message': msg})
     else:
         return jsonify({'status': 'error', 'message': msg})
 
+@app.route('/list_ref_audios', methods=['GET'])
+def list_ref_audios():
+    """列出 io/input/audio 下的参考音频"""
+    audio_dir = os.path.join(BASE_DIR, "io", "input", "audio")
+    audios = []
+    if os.path.exists(audio_dir):
+        for f in os.listdir(audio_dir):
+            if f.lower().endswith(('.wav', '.mp3', '.m4a', '.flac')):
+                audios.append(f)
+    return jsonify(audios)
 
-# GeneFace++ 状态查询路由
+@app.route('/upload_ref_audio', methods=['POST'])
+def upload_ref_audio():
+    """上传参考音频 (增强版: 支持自动转码和UUID命名)"""
+    if 'audio' not in request.files:
+        return jsonify({'status': 'error', 'message': '请求中没有音频文件'})
+    
+    file = request.files['audio']
+    if file.filename == '':
+        return jsonify({'status': 'error', 'message': '未选择文件'})
+        
+    try:
+        # 1. 定义路径
+        temp_dir = os.path.join(BASE_DIR, 'io', 'temp')
+        final_dir = os.path.join(BASE_DIR, 'io', 'input', 'audio')
+        os.makedirs(temp_dir, exist_ok=True)
+        os.makedirs(final_dir, exist_ok=True)
+        
+        # 2. 保存原始文件到 temp (使用UUID防止中文名问题)
+        original_ext = os.path.splitext(file.filename)[1].lower()
+        if not original_ext: original_ext = ".wav"
+            
+        temp_filename = f"upload_temp_{uuid.uuid4().hex}{original_ext}"
+        temp_path = os.path.join(temp_dir, temp_filename)
+        file.save(temp_path)
+        
+        # 3. 准备最终文件名
+        original_stem = os.path.splitext(file.filename)[0]
+        # 尝试保留原始文件名主体，如果 secure_filename 变为空(如纯中文)，则生成随机名
+        safe_stem = secure_filename(original_stem)
+        if not safe_stem: 
+            safe_stem = f"ref_{uuid.uuid4().hex[:8]}"
+            
+        final_filename = f"{safe_stem}.wav"
+        final_path = os.path.join(final_dir, final_filename)
+        
+        # 避免文件名冲突
+        counter = 1
+        while os.path.exists(final_path):
+            final_filename = f"{safe_stem}_{counter}.wav"
+            final_path = os.path.join(final_dir, final_filename)
+            counter += 1
+        
+        print(f"[Upload] 正在转换: {temp_path} -> {final_path}")
+        
+        # 4. 转换格式
+        try:
+            audio = AudioSegment.from_file(temp_path)
+            audio = audio.set_channels(1) # 转单声道
+            audio.export(final_path, format="wav")
+        except FileNotFoundError:
+            raise Exception("服务器未安装 ffmpeg，无法转换音频格式。")
+        except Exception as trans_e:
+            raise Exception(f"音频转换失败: {trans_e}")
+        
+        # 5. 清理
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+            
+        print(f"[Upload] 完成: {final_path}")
+        return jsonify({'status': 'success', 'filename': final_filename})
+        
+    except Exception as e:
+        print(f"[Upload] Error: {e}")
+        # 尝试清理
+        if 'temp_path' in locals() and os.path.exists(temp_path):
+            try: os.remove(temp_path)
+            except: pass
+        return jsonify({'status': 'error', 'message': str(e)})
+
+# --- GeneFace++ 专用接口 ---
+
 @app.route('/geneface/health', methods=['GET'])
 def geneface_health_check():
     """检查 GeneFace++ 服务"""
@@ -223,12 +262,10 @@ def geneface_health_check():
         "message": "服务正常" if is_ok else "请启动 Docker: docker start geneface"
     })
 
-
 @app.route('/geneface/videos', methods=['GET'])
 def geneface_videos():
     """列出可用视频"""
     return jsonify(geneface_api_call("/videos"))
-
 
 @app.route('/geneface/upload', methods=['POST'])
 def geneface_upload():
@@ -242,10 +279,8 @@ def geneface_upload():
     if not video_id:
         video_id = os.path.splitext(secure_filename(video_file.filename))[0]
 
-    # 清理 video_id
     video_id = re.sub(r'[^a-zA-Z0-9_]', '_', video_id)
 
-    # 保存到 GeneFace 目录
     geneface_video_dir = os.path.join(BASE_DIR, "GeneFace", "data", "raw", "videos")
     os.makedirs(geneface_video_dir, exist_ok=True)
 
@@ -258,60 +293,39 @@ def geneface_upload():
         "message": "视频上传成功"
     })
 
-
 @app.route('/geneface/task/<task_id>', methods=['GET'])
 def geneface_task(task_id):
-    """查询任务状态"""
     return jsonify(geneface_api_call(f"/task/{task_id}"))
-
 
 @app.route('/geneface/tasks', methods=['GET'])
 def geneface_tasks():
-    """列出所有任务"""
     return jsonify(geneface_api_call("/tasks"))
-
 
 @app.route('/geneface/models', methods=['GET'])
 def geneface_models():
-    """列出已训练模型 (直接扫描本地文件系统)"""
+    """列出已训练模型"""
     models = []
-    # 假设 GeneFace 目录在 BASE_DIR 下
     ckpt_base = os.path.join(BASE_DIR, "GeneFace", "checkpoints", "motion2video_nerf")
 
     if os.path.exists(ckpt_base):
         video_models = {}
-
         for name in os.listdir(ckpt_base):
             full_path = os.path.join(ckpt_base, name)
             if os.path.isdir(full_path):
                 if name.endswith('_head'):
                     video_id = name[:-5]
                     if video_id not in video_models:
-                        video_models[video_id] = {
-                            "video_id": video_id,
-                            "head_checkpoints": [],
-                            "torso_checkpoints": []
-                        }
-
-                    # 扫描 .ckpt 和 .pt 文件
+                        video_models[video_id] = {"video_id": video_id, "head_checkpoints": [], "torso_checkpoints": []}
                     for root, dirs, files in os.walk(full_path):
                         for f in files:
                             if f.endswith(('.ckpt', '.pt')):
-                                # 构造相对路径，保持与 Docker 内部路径结构一致 (checkpoints/motion2video_nerf/...)
-                                # 这里我们需要返回相对于 GeneFace 根目录的路径
                                 rel_path = os.path.relpath(os.path.join(root, f), os.path.join(BASE_DIR, "GeneFace"))
-                                rel_path = rel_path.replace("\\", "/") # 统一为正斜杠
+                                rel_path = rel_path.replace("\\", "/")
                                 video_models[video_id]["head_checkpoints"].append(rel_path)
-
                 elif name.endswith('_torso'):
                     video_id = name[:-6]
                     if video_id not in video_models:
-                        video_models[video_id] = {
-                            "video_id": video_id,
-                            "head_checkpoints": [],
-                            "torso_checkpoints": []
-                        }
-
+                        video_models[video_id] = {"video_id": video_id, "head_checkpoints": [], "torso_checkpoints": []}
                     for root, dirs, files in os.walk(full_path):
                         for f in files:
                             if f.endswith(('.ckpt', '.pt')):
@@ -319,9 +333,7 @@ def geneface_models():
                                 rel_path = rel_path.replace("\\", "/")
                                 video_models[video_id]["torso_checkpoints"].append(rel_path)
 
-        # 排序
         for vid, data in video_models.items():
-            # 按修改时间排序
             data["head_checkpoints"].sort(key=lambda x: os.path.getmtime(os.path.join(BASE_DIR, "GeneFace", x)) if os.path.exists(os.path.join(BASE_DIR, "GeneFace", x)) else 0, reverse=True)
             data["torso_checkpoints"].sort(key=lambda x: os.path.getmtime(os.path.join(BASE_DIR, "GeneFace", x)) if os.path.exists(os.path.join(BASE_DIR, "GeneFace", x)) else 0, reverse=True)
 
@@ -329,33 +341,58 @@ def geneface_models():
 
     return jsonify(models)
 
+@app.route('/geneface/models_local', methods=['GET'])
+def geneface_models_local():
+    """扫描本地 GeneFace checkpoints 目录"""
+    checkpoints_dir = os.path.join(BASE_DIR, "GeneFace", "checkpoints", "motion2video_nerf")
+    models = []
+
+    if os.path.exists(checkpoints_dir):
+        # 获取所有子文件夹
+        subdirs = [d for d in os.listdir(checkpoints_dir) if os.path.isdir(os.path.join(checkpoints_dir, d))]
+
+        for subdir in subdirs:
+            # 简单的过滤，通常我们关注 _torso 结尾的作为身体模型，但用户可能想要所有
+            # 这里我们列出所有文件夹，并扫描其中的 .ckpt/.pt 文件
+            dir_path = os.path.join(checkpoints_dir, subdir)
+            files = [f for f in os.listdir(dir_path) if f.endswith('.ckpt') or f.endswith('.pt')]
+
+            # 按修改时间排序，最新的在前
+            files.sort(key=lambda x: os.path.getmtime(os.path.join(dir_path, x)), reverse=True)
+
+            if files:
+                # 尝试推断对应的 head 文件夹
+                head_dir_name = subdir.replace("_torso", "_head")
+                head_checkpoints = []
+                head_dir_path = os.path.join(checkpoints_dir, head_dir_name)
+                if os.path.exists(head_dir_path) and os.path.isdir(head_dir_path):
+                     head_files = [f for f in os.listdir(head_dir_path) if f.endswith('.ckpt') or f.endswith('.pt')]
+                     head_files.sort(key=lambda x: os.path.getmtime(os.path.join(head_dir_path, x)), reverse=True)
+                     head_checkpoints = [os.path.join("checkpoints", "motion2video_nerf", head_dir_name, f).replace("\\", "/") for f in head_files]
+
+                models.append({
+                    "video_id": subdir, # 这里用文件夹名作为 ID
+                    "torso_checkpoints": [os.path.join("checkpoints", "motion2video_nerf", subdir, f).replace("\\", "/") for f in files],
+                    "head_checkpoints": head_checkpoints
+                })
+
+    return jsonify(models)
 
 @app.route('/geneface/video/<video_id>')
 def geneface_video_file(video_id):
-    """提供 GeneFace 视频文件访问"""
-    import re
-    # 清理 video_id 防止路径遍历攻击
     video_id = re.sub(r'[^a-zA-Z0-9_-]', '', video_id)
-
     video_path = os.path.join(BASE_DIR, "GeneFace", "data", "raw", "videos", f"{video_id}.mp4")
-
     if os.path.exists(video_path):
         return send_file(video_path, mimetype='video/mp4')
     else:
         return jsonify({"error": "视频不存在"}), 404
 
-
-# app.py 中添加以下路由
-
 @app.route('/geneface/audios', methods=['GET'])
 def geneface_audios():
-    """列出可用音频"""
     return jsonify(geneface_api_call("/audios"))
-
 
 @app.route('/geneface/upload_audio', methods=['POST'])
 def geneface_upload_audio():
-    """上传音频到 GeneFace++"""
     if 'audio' not in request.files:
         return jsonify({"status": "error", "message": "没有音频文件"}), 400
 
@@ -365,10 +402,7 @@ def geneface_upload_audio():
     if not audio_name:
         audio_name = os.path.splitext(secure_filename(audio_file.filename))[0]
 
-    # 清理名称
     audio_name = re.sub(r'[^a-zA-Z0-9_-]', '_', audio_name)
-
-    # 保存到 GeneFace 目录
     audio_dir = os.path.join(BASE_DIR, "GeneFace", "data", "raw", "val_wavs")
     os.makedirs(audio_dir, exist_ok=True)
 
@@ -378,7 +412,6 @@ def geneface_upload_audio():
 
     save_path = os.path.join(audio_dir, f"{audio_name}{ext}")
     audio_file.save(save_path)
-
     rel_path = f"data/raw/val_wavs/{audio_name}{ext}"
 
     return jsonify({
@@ -387,38 +420,19 @@ def geneface_upload_audio():
         "audio_path": rel_path
     })
 
-
 @app.route('/geneface/infer', methods=['POST'])
 def geneface_infer():
-    """GeneFace++ 推理"""
     data = request.json
     return jsonify(geneface_api_call("/infer", "POST", data))
 
-
 @app.route('/geneface/output/<path:filename>')
 def geneface_output_file(filename):
-    """提供 GeneFace 输出视频文件访问"""
-    # 清理路径防止遍历攻击
     filename = secure_filename(filename)
     video_path = os.path.join(BASE_DIR, "GeneFace", "infer_out", filename)
-
     if os.path.exists(video_path):
         return send_file(video_path, mimetype='video/mp4')
     else:
         return jsonify({"error": "视频不存在"}), 404
 
-
-@app.route('/list_ref_audios', methods=['GET'])
-def list_ref_audios():
-    """列出 io/input/audio 下的参考音频"""
-    audio_dir = os.path.join(BASE_DIR, "io", "input", "audio")
-    audios = []
-    if os.path.exists(audio_dir):
-        for f in os.listdir(audio_dir):
-            if f.lower().endswith(('.wav', '.mp3', '.m4a')):
-                audios.append(f)
-    return jsonify(audios)
-
-
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', debug=True, port=5000)
+    app.run(host='0.0.0.0', debug=True, port=5000, use_reloader=False)
