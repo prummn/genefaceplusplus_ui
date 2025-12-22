@@ -45,11 +45,18 @@ def generate_audio_from_text(text, voice_choice='zhb'):
     """
     print(f"[video_generator] 开始文本生成语音: {text[:20]}... (Voice: {voice_choice})")
 
-    # 准备参考音频路径
-    host_ref_audio = os.path.join(RVC_IO_DIR, "input", f"{voice_choice}.wav")
+    # 准备参考音频路径 (修正为 io/input/audio)
+    audio_input_dir = os.path.join(RVC_IO_DIR, "input", "audio")
+
+    # 处理 voice_choice 可能包含或不包含扩展名的情况
+    if os.path.splitext(voice_choice)[1]:
+        host_ref_audio = os.path.join(audio_input_dir, voice_choice)
+    else:
+        host_ref_audio = os.path.join(audio_input_dir, f"{voice_choice}.wav")
+
     if not os.path.exists(host_ref_audio):
         print(f"[video_generator] 警告: 音色 {host_ref_audio} 不存在，使用默认 zhb")
-        host_ref_audio = os.path.join(RVC_IO_DIR, "input", "zhb.wav")
+        host_ref_audio = os.path.join(audio_input_dir, "zhb.wav")
 
     chunk_audio_files = []
     text_chunks = simple_splitter(text)
@@ -67,7 +74,8 @@ def generate_audio_from_text(text, voice_choice='zhb'):
 
             # Docker 路径映射
             ref_name = os.path.basename(host_ref_audio)
-            docker_ref_path = f"/io/input/{ref_name}"
+            # 修正 Docker 内路径，匹配 io/input/audio
+            docker_ref_path = f"/io/input/audio/{ref_name}"
             temp_text_name = os.path.basename(host_temp_text_file)
             docker_text_path = f"/io/input/{temp_text_name}"
 

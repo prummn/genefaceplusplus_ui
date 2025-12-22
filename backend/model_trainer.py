@@ -175,14 +175,16 @@ def train_geneface(data):
     if train_stage == "head":
         return geneface_api_call("/train/head", "POST", {
             "video_id": video_id,
-            "gpu_id": gpu_id
+            "gpu_id": gpu_id,
+            "max_updates": max_updates_head
         })
 
     # 身体训练
     if train_stage == "torso":
         payload = {
             "video_id": video_id,
-            "gpu_id": gpu_id
+            "gpu_id": gpu_id,
+            "max_updates": max_updates_torso
         }
 
         # 只有当用户提供了 head_ckpt 时才传递，否则让 api_server 使用默认值
@@ -196,4 +198,4 @@ def train_geneface(data):
 
     return {"status": "error", "message": f"未知阶段: {train_stage}"}
 def stop_train_remote(cmd):
-    return geneface_api_call("/stop_train_local", "POST", {"stop_train": cmd})                       
+    return geneface_api_call("/stop_train_local", "POST", {"stop_train": cmd})

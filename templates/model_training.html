@@ -109,13 +109,10 @@
                         </div>
 
                         <div class="form-group">
-                            <label>头部训练步数</label>
-                            <input type="number" name="max_updates_head" value="250000" min="1000" step="1000">
-                        </div>
-
-                        <div class="form-group">
-                            <label>身体训练步数</label>
-                            <input type="number" name="max_updates_torso" value="250000" min="1000" step="1000">
+                            <label>训练步数 (Total Steps)</label>
+                            <input type="number" name="max_updates_head" placeholder="头部训练总步数 (默认 250000)" value="250000">
+                            <input type="number" name="max_updates_torso" placeholder="身体训练总步数 (默认 250000)" value="250000" style="margin-top: 5px;">
+                            <small style="color: #888; display: block; margin-top: 5px;">注意：这是累计总步数。如果断点续训，请设置比当前步数更大的值。</small>
                         </div>
 
                         <div class="form-group" id="head_ckpt_group" style="display: none;">

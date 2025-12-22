@@ -284,7 +284,7 @@ def preprocessing_worker(task_id, video_id, gpu_id="0", max_updates_head=40000, 
 
 
 # ==================== 头部训练 ====================
-def head_training_worker(task_id, video_id, gpu_id="0"):
+def head_training_worker(task_id, video_id, gpu_id="0", max_updates=None):
     log(f"========== 开始头部训练 {task_id} ==========")
     update_task(task_id, status="running", current_step="训练头部模型")
 
@@ -299,7 +299,11 @@ def head_training_worker(task_id, video_id, gpu_id="0"):
 
         exp_name = f"motion2video_nerf/{video_id}_head"
 
+
         cmd = f'python tasks/run.py --config={config_path} --exp_name={exp_name} --reset'
+        if max_updates:
+            cmd += f" --hparams=max_updates={max_updates}"
+
         result = run_command(cmd, WORK_DIR, env)
 
         if result["returncode"] != 0:
@@ -316,7 +320,7 @@ def head_training_worker(task_id, video_id, gpu_id="0"):
 
 
 # ==================== 身体训练 ====================
-def torso_training_worker(task_id, video_id, head_ckpt, gpu_id="0"):
+def torso_training_worker(task_id, video_id, head_ckpt, gpu_id="0", max_updates=None):
     log(f"========== 开始身体训练 {task_id} ==========")
     log(f"video_id={video_id}, head_ckpt={head_ckpt}, gpu_id={gpu_id}")
     update_task(task_id, status="running", current_step="训练身体模型")
@@ -332,7 +336,12 @@ def torso_training_worker(task_id, video_id, head_ckpt, gpu_id="0"):
 
         exp_name = f"motion2video_nerf/{video_id}_torso"
 
-        cmd = f'python tasks/run.py --config={config_path} --exp_name={exp_name} --hparams=head_model_dir={head_ckpt} --reset'
+        hparams_list = [f"head_model_dir={head_ckpt}"]
+        if max_updates:
+            hparams_list.append(f"max_updates={max_updates}")
+        hparams_str = ",".join(hparams_list)
+
+        cmd = f'python tasks/run.py --config={config_path} --exp_name={exp_name} --hparams={hparams_str} --reset'
         result = run_command(cmd, WORK_DIR, env)
 
         if result["returncode"] != 0:
@@ -485,8 +494,9 @@ def start_head_training():
     data = request.json
     video_id = data.get('video_id')
     gpu_id = data.get('gpu_id', '0')
+    max_updates = data.get('max_updates')
 
-    log(f"收到头部训练请求: video_id={video_id}, gpu_id={gpu_id}")
+    log(f"收到头部训练请求: video_id={video_id}, gpu_id={gpu_id}, max_updates={max_updates}")
 
     if not video_id:
         log("错误: 缺少 video_id", "ERROR")
@@ -506,7 +516,7 @@ def start_head_training():
 
     log(f"创建头部训练任务: {task_id}")
 
-    thread = threading.Thread(target=head_training_worker, args=(task_id, video_id, gpu_id))
+    thread = threading.Thread(target=head_training_worker, args=(task_id, video_id, gpu_id, max_updates))
     thread.daemon = True
     thread.start()
 
@@ -519,8 +529,9 @@ def start_torso_training():
     video_id = data.get('video_id')
     head_ckpt = data.get('head_ckpt')
     gpu_id = data.get('gpu_id', '0')
+    max_updates = data.get('max_updates')
 
-    log(f"收到身体训练请求: video_id={video_id}, head_ckpt={head_ckpt}, gpu_id={gpu_id}")
+    log(f"收到身体训练请求: video_id={video_id}, head_ckpt={head_ckpt}, gpu_id={gpu_id}, max_updates={max_updates}")
 
     if not video_id:
         log("错误: 缺少 video_id", "ERROR")
@@ -550,7 +561,7 @@ def start_torso_training():
 
     log(f"创建身体训练任务: {task_id}")
 
-    thread = threading.Thread(target=torso_training_worker, args=(task_id, video_id, head_ckpt, gpu_id))
+    thread = threading.Thread(target=torso_training_worker, args=(task_id, video_id, head_ckpt, gpu_id, max_updates))
     thread.daemon = True
     thread.start()
 
@@ -828,4 +839,3 @@ if __name__ == '__main__':
 
     load_tasks()
     app.run(host='0.0.0.0', port=7860, debug=False, threaded=True)
-

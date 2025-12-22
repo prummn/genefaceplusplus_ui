@@ -341,6 +341,43 @@ def geneface_models():
 
     return jsonify(models)
 
+@app.route('/geneface/models_local', methods=['GET'])
+def geneface_models_local():
+    """扫描本地 GeneFace checkpoints 目录"""
+    checkpoints_dir = os.path.join(BASE_DIR, "GeneFace", "checkpoints", "motion2video_nerf")
+    models = []
+
+    if os.path.exists(checkpoints_dir):
+        # 获取所有子文件夹
+        subdirs = [d for d in os.listdir(checkpoints_dir) if os.path.isdir(os.path.join(checkpoints_dir, d))]
+
+        for subdir in subdirs:
+            # 简单的过滤，通常我们关注 _torso 结尾的作为身体模型，但用户可能想要所有
+            # 这里我们列出所有文件夹，并扫描其中的 .ckpt/.pt 文件
+            dir_path = os.path.join(checkpoints_dir, subdir)
+            files = [f for f in os.listdir(dir_path) if f.endswith('.ckpt') or f.endswith('.pt')]
+
+            # 按修改时间排序，最新的在前
+            files.sort(key=lambda x: os.path.getmtime(os.path.join(dir_path, x)), reverse=True)
+
+            if files:
+                # 尝试推断对应的 head 文件夹
+                head_dir_name = subdir.replace("_torso", "_head")
+                head_checkpoints = []
+                head_dir_path = os.path.join(checkpoints_dir, head_dir_name)
+                if os.path.exists(head_dir_path) and os.path.isdir(head_dir_path):
+                     head_files = [f for f in os.listdir(head_dir_path) if f.endswith('.ckpt') or f.endswith('.pt')]
+                     head_files.sort(key=lambda x: os.path.getmtime(os.path.join(head_dir_path, x)), reverse=True)
+                     head_checkpoints = [os.path.join("checkpoints", "motion2video_nerf", head_dir_name, f).replace("\\", "/") for f in head_files]
+
+                models.append({
+                    "video_id": subdir, # 这里用文件夹名作为 ID
+                    "torso_checkpoints": [os.path.join("checkpoints", "motion2video_nerf", subdir, f).replace("\\", "/") for f in files],
+                    "head_checkpoints": head_checkpoints
+                })
+
+    return jsonify(models)
+
 @app.route('/geneface/video/<video_id>')
 def geneface_video_file(video_id):
     video_id = re.sub(r'[^a-zA-Z0-9_-]', '', video_id)

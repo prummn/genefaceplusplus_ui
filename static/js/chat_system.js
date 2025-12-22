@@ -2,6 +2,7 @@
 let mediaRecorder;
 let audioChunks = [];
 let isRecording = false;
+let isUploading = false; // 新增：上传状态标志
 let startTime;
 let timerInterval;
 let geneFaceModelsData = []; // 缓存模型数据
@@ -45,6 +46,8 @@ async function startRecording() {
             formData.append('audio', audioBlob, 'input.wav');
             
             statusMessage.textContent = '正在保存录音...';
+            isUploading = true; // 开始上传
+            updateSubmitButtonState(); // 更新按钮状态
 
             fetch('/save_audio', {
                 method: 'POST',
@@ -67,6 +70,10 @@ async function startRecording() {
             .catch(error => {
                 console.error('保存录音错误:', error);
                 statusMessage.textContent = '保存录音时出错';
+            })
+            .finally(() => {
+                isUploading = false; // 上传结束
+                updateSubmitButtonState(); // 恢复按钮状态
             });
 
             stream.getTracks().forEach(track => track.stop());
@@ -256,6 +263,24 @@ function toggleModelSettings() {
     }
 }
 
+
+// 新增：更新提交按钮状态
+function updateSubmitButtonState() {
+    const btn = document.querySelector('.generate-btn.primary-btn');
+    if (!btn) return;
+
+    if (isRecording || isUploading) {
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+        btn.style.cursor = 'not-allowed';
+    } else {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+    }
+}
+
+
 // --- 参考音频加载与上传模块 ---
 
 // 加载参考音频列表 (增加 selectedValue 参数用于自动选中)
@@ -275,12 +300,17 @@ function loadRefAudios(selectedValue = null) {
                 voiceSelect.innerHTML = ''; // 清空现有选项
                 data.forEach(filename => {
                     const opt = document.createElement('option');
+// <<<<<<< HEAD
+//                     // 修改：使用完整文件名作为 value，避免后端扩展名匹配错误
+//                     opt.value = audioName;
+//                     opt.textContent = audioName;
+// =======
                     // 后端 chat_engine.py 期望的是不带后缀的文件名作为 voice_clone 参数
                     const nameWithoutExt = filename.replace(/\.[^/.]+$/, "");
                     
                     opt.value = nameWithoutExt; 
                     opt.textContent = `io/input/audio/${filename}`;
-                    
+
                     voiceSelect.appendChild(opt);
                 });
 
@@ -291,6 +321,7 @@ function loadRefAudios(selectedValue = null) {
                     voiceSelect.value = valToSelect;
                 }
             } else {
+
                 voiceSelect.innerHTML = '<option value="">未找到音频文件</option>';
             }
         })
@@ -358,6 +389,7 @@ if (recordButton) {
         } else {
             stopRecording();
         }
+        updateSubmitButtonState(); // 更新按钮状态
     });
 }
 
@@ -366,7 +398,17 @@ const chatForm = document.getElementById('chatForm');
 if (chatForm) {
     chatForm.addEventListener('submit', function (e) {
         e.preventDefault();
-        
+
+        // 检查是否正在录音或上传
+        if (isRecording) {
+            alert('请先停止录音');
+            return;
+        }
+        if (isUploading) {
+            alert('音频正在保存中，请稍候...');
+            return;
+        }
+
         const videoEl = document.getElementById('chatVideo');
         
         // 提交前清理播放器
@@ -456,9 +498,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     })
                     .catch(err => alert('系统错误：清除失败'))
-                    .finally(() => btn.innerHTML = originalText);
             }
         });
     }
 });
-
