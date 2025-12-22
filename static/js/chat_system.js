@@ -2,6 +2,7 @@
 let mediaRecorder;
 let audioChunks = [];
 let isRecording = false;
+let isUploading = false; // 新增：上传状态标志
 let startTime;
 let timerInterval;
 let geneFaceModelsData = []; // 缓存模型数据
@@ -45,6 +46,8 @@ async function startRecording() {
             formData.append('audio', audioBlob, 'input.wav');
             
             statusMessage.textContent = '正在保存录音...';
+            isUploading = true; // 开始上传
+            updateSubmitButtonState(); // 更新按钮状态
 
             fetch('/save_audio', {
                 method: 'POST',
@@ -67,6 +70,10 @@ async function startRecording() {
             .catch(error => {
                 console.error('保存录音错误:', error);
                 statusMessage.textContent = '保存录音时出错';
+            })
+            .finally(() => {
+                isUploading = false; // 上传结束
+                updateSubmitButtonState(); // 恢复按钮状态
             });
 
             stream.getTracks().forEach(track => track.stop());
@@ -256,6 +263,22 @@ function toggleModelSettings() {
     }
 }
 
+// 新增：更新提交按钮状态
+function updateSubmitButtonState() {
+    const btn = document.querySelector('.generate-btn.primary-btn');
+    if (!btn) return;
+
+    if (isRecording || isUploading) {
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+        btn.style.cursor = 'not-allowed';
+    } else {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+    }
+}
+
 // 新增：加载参考音频列表
 function loadRefAudios() {
     const voiceSelect = document.getElementById('voice_clone_select');
@@ -268,19 +291,14 @@ function loadRefAudios() {
                 voiceSelect.innerHTML = ''; // 清空现有选项
                 data.forEach(audioName => {
                     const opt = document.createElement('option');
-                    // 假设后端只需要文件名（不带扩展名）作为 voice_clone 参数
-                    // 或者如果后端需要完整路径，这里需要调整
-                    // 根据之前的代码逻辑：voice_choice = data.get('voice_clone', 'zhb')
-                    // 并且 ref_audio_path_host = os.path.join(IO_INPUT_AUDIO, f"{voice_choice}.wav")
-                    // 所以这里应该只传递文件名（不带扩展名）
-                    const nameWithoutExt = audioName.replace(/\.[^/.]+$/, "");
-                    opt.value = nameWithoutExt;
+                    // 修改：使用完整文件名作为 value，避免后端扩展名匹配错误
+                    opt.value = audioName;
                     opt.textContent = audioName;
                     voiceSelect.appendChild(opt);
                 });
             } else {
                 // 如果没有找到音频，保留默认或显示提示
-                voiceSelect.innerHTML = '<option value="zhb">zhb.wav (默认)</option>';
+                voiceSelect.innerHTML = '<option value="zhb.wav">zhb.wav (默认)</option>';
             }
         })
         .catch(err => {
@@ -299,6 +317,7 @@ if (recordButton) {
         } else {
             stopRecording();
         }
+        updateSubmitButtonState(); // 更新按钮状态
     });
 }
 

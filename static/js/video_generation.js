@@ -121,7 +121,9 @@ document.getElementById('videoForm').addEventListener('submit', function(e) {
 });
 document.addEventListener('DOMContentLoaded', function() {
     toggleModelOptions();
+    loadRvcRefAudios(); // 加载音色列表
 });
+
 // 当用户选择文件时，更新显示的文本
 function updateFileName(input) {
     const fileNameDisplay = document.getElementById('file_name_display');
@@ -132,4 +134,30 @@ function updateFileName(input) {
         fileNameDisplay.textContent = '未选择文件';
         fileNameDisplay.style.color = '#8899a6';
     }
+}
+
+// 新增：加载 RVC 参考音频列表 (用于文本驱动模式)
+function loadRvcRefAudios() {
+    const voiceSelect = document.getElementById('voice_clone');
+    if (!voiceSelect) return;
+
+    fetch('/list_ref_audios')
+        .then(res => res.json())
+        .then(data => {
+            if (data && data.length > 0) {
+                voiceSelect.innerHTML = ''; // 清空现有选项
+                data.forEach(audioName => {
+                    const opt = document.createElement('option');
+                    opt.value = audioName; // 使用完整文件名
+                    opt.textContent = audioName;
+                    voiceSelect.appendChild(opt);
+                });
+            } else {
+                voiceSelect.innerHTML = '<option value="zhb.wav">zhb.wav (默认)</option>';
+            }
+        })
+        .catch(err => {
+            console.error("加载参考音频失败:", err);
+            voiceSelect.innerHTML = '<option value="zhb.wav">zhb.wav (默认)</option>';
+        });
 }

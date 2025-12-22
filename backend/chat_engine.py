@@ -103,8 +103,15 @@ def chat_response(data):
     llm_model = data.get('api_choice', 'glm-4.5-flash')
     model_name = data.get('model_name', 'SyncTalk')
 
-    ref_audio_path_host = os.path.join(IO_INPUT_AUDIO, f"{voice_choice}.wav")
-    ref_text_path_host = os.path.join(IO_INPUT_TEXT, f"{voice_choice}.txt")
+    # 修复：处理 voice_choice 可能包含或不包含扩展名的情况
+    if os.path.splitext(voice_choice)[1]:
+        ref_audio_path_host = os.path.join(IO_INPUT_AUDIO, voice_choice)
+    else:
+        ref_audio_path_host = os.path.join(IO_INPUT_AUDIO, f"{voice_choice}.wav")
+
+    # 对应的文本文件 (假设同名 .txt)
+    ref_text_filename = os.path.splitext(os.path.basename(ref_audio_path_host))[0] + ".txt"
+    ref_text_path_host = os.path.join(IO_INPUT_TEXT, ref_text_filename)
 
     if not os.path.exists(ref_audio_path_host):
         print(f"[Warn] 参考音频不存在: {ref_audio_path_host}")

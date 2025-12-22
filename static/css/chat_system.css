@@ -41,6 +41,12 @@ body {
     color: var(--text-main);
     overflow-x: hidden;
     min-height: 100vh;
+    overflow-y: auto; /* 确保垂直滚动开启 */
+}
+
+html {
+    height: 100%;
+    overflow-y: auto;
 }
 
 body.subpage-bg {
