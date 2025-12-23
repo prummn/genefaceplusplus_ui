@@ -273,13 +273,8 @@ genefaceplusplus_ui/
 
 * **镜像名称**: `genefaceplus:0219`
 * **功能**: 负责 GeneFace++ 视频模型训练推理。
-* **Dockerfile 位置**: `GeneFace/Dockerfile`
-* **构建命令**:
-  请进入 `GeneFace` 目录执行构建：
-  ```bash
-  cd GeneFace
-  docker build -t genefaceplus:0219 .
-  ```
+* **Docker构建教程位置**: `GeneFace/Docker.installation.md`
+* 请参考该文档完成镜像构建。由于原项目就存在较多依赖冲突，建议直接使用预构建镜像，我们会提供网盘下载链接，也会直接放在压缩包中。
 
 #### GeneFace++ 容器启动流程详解
 

@@ -1,48 +1,107 @@
-#!/bin/bash
-# start_geneface.sh - 启动 GeneFace++ Docker 服务
+#!/usr/bin/env bash
+set -e
 
-PROJECT_DIR=$(cd "$(dirname "$0")" && pwd)
+echo "=========================================="
+echo "  GeneFace++ Docker Launcher (Linux)"
+echo "=========================================="
+
+# 获取脚本所在目录（绝对路径）
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONTAINER_NAME="geneface"
 
-echo "=========================================="
-echo "  GeneFace++ Docker 启动脚本"
-echo "=========================================="
-echo "项目目录: $PROJECT_DIR"
+echo "Project directory: ${PROJECT_DIR}"
 
-# 检查容器状态
-if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-    echo "✓ GeneFace++ 已在运行"
-    exit 0
+# ----------------------------------------
+# 检查容器是否正在运行
+# ----------------------------------------
+RUNNING=0
+if docker ps -q -f "name=^${CONTAINER_NAME}$" | grep -q .; then
+    RUNNING=1
 fi
 
-if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-    echo "启动已存在的容器..."
-    docker start $CONTAINER_NAME
+if [ "$RUNNING" -eq 1 ]; then
+    echo "[OK] Container is already running"
+    goto_check_service=true
 else
-    echo "创建新容器..."
-    docker run -d \
-        --name $CONTAINER_NAME \
-        -p 7869:7860 \
-        --gpus all \
-        -v ~/.cache:/root/.cache \
-        -v ${PROJECT_DIR}/GeneFace:/data/geneface \
-        --restart unless-stopped \
-        genfaceplus:0219 \
-        python /data/geneface/api_server.py
+    goto_check_service=false
 fi
 
-# 等待服务就绪
-echo "等待服务启动..."
-for i in {1..30}; do
-    if curl -s http://localhost:7869/health > /dev/null 2>&1; then
-        echo "✓ GeneFace++ 服务已就绪"
-        echo "  API 地址: http://localhost:7869"
-        exit 0
+# ----------------------------------------
+# 检查是否存在已停止的容器
+# ----------------------------------------
+if [ "$goto_check_service" = false ]; then
+    EXISTS=0
+    if docker ps -aq -f "name=^${CONTAINER_NAME}$" | grep -q .; then
+        EXISTS=1
     fi
+
+    if [ "$EXISTS" -eq 1 ]; then
+        echo "Starting existing container..."
+        docker start "${CONTAINER_NAME}"
+        sleep 2
+
+        if docker ps -q -f "name=^${CONTAINER_NAME}$" | grep -q .; then
+            echo "[OK] Container started"
+        else
+            echo "Container failed to start, removing and recreating..."
+            docker rm -f "${CONTAINER_NAME}"
+            EXISTS=0
+        fi
+    fi
+
+    # ----------------------------------------
+    # 创建新容器
+    # ----------------------------------------
+    if [ "$EXISTS" -eq 0 ]; then
+        echo "Creating new container..."
+        docker run -d \
+            -e PYTHONUNBUFFERED=1 \
+            --name "${CONTAINER_NAME}" \
+            -p 7869:7860 \
+            --gpus all \
+            -v "${HOME}/.cache:/root/.cache" \
+            -v "${PROJECT_DIR}/GeneFace:/data/geneface" \
+            --restart unless-stopped \
+            genfaceplus:0219 \
+            bash -c "source /root/miniconda3/etc/profile.d/conda.sh && conda activate pytorch && cd /data/geneface && python api_server.py"
+    fi
+fi
+
+# ----------------------------------------
+# 等待服务启动
+# ----------------------------------------
+echo "Waiting for service..."
+
+count=0
+while true; do
+    if curl -s http://localhost:7869/health >/dev/null 2>&1; then
+        echo
+        echo "[OK] GeneFace++ service is ready"
+        echo "API URL: http://localhost:7869"
+        break
+    fi
+
+    count=$((count + 1))
+    if [ "$count" -ge 30 ]; then
+        echo
+        echo "[FAIL] Startup timeout"
+        echo "View logs: docker logs ${CONTAINER_NAME}"
+        docker ps -a -f "name=${CONTAINER_NAME}"
+        break
+    fi
+
+    printf "."
     sleep 1
-    echo -n "."
 done
 
-echo ""
-echo "✗ 服务启动超时，请检查日志: docker logs $CONTAINER_NAME"
-exit 1
+# ----------------------------------------
+# 如果容器已运行，检查服务状态
+# ----------------------------------------
+if [ "$goto_check_service" = true ]; then
+    if curl -s http://localhost:7869/health >/dev/null 2>&1; then
+        echo "API URL: http://localhost:7869"
+    else
+        echo "Container running but service not responding"
+        echo "View logs: docker logs ${CONTAINER_NAME}"
+    fi
+fi
