@@ -106,7 +106,7 @@ def main() -> None:
     IO_ROOT = ROOT_DIR.parent
     
     default_ref_wav = IO_ROOT / "io/input/audio/nahida.wav"
-    default_text_path = IO_ROOT / "io/history/latest_ai_response.txt"
+    default_text_path = IO_ROOT / "io/history/test.txt"
     default_output_wav = IO_ROOT / "io/output/output.wav"
     default_prompt_text_path = IO_ROOT / "io/input/text/nahida.txt"
 
