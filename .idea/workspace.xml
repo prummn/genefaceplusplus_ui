@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="7dbe18fc-c324-41f1-b4ea-85e995be5810" name="Changes" comment="" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/root" />
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/.env" root0="FORCE_HIGHLIGHTING" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;customColor&quot;: &quot;&quot;,
+  &quot;associatedIndex&quot;: 7
+}</component>
+  <component name="ProjectId" id="361E2py8POFUrbKe9zzf66C8v33" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;E:/2025fallTFG/genefaceplusplus_ui&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="E:\2025fallTFG\genefaceplusplus_ui" />
+      <recent name="E:\2025fallTFG\genefaceplusplus_ui\GeneFace\checkpoints\motion2video_nerf\Shaheen_head" />
+      <recent name="E:\2025fallTFG\genefaceplusplus_ui\GeneFace\checkpoints" />
+      <recent name="E:\2025fallTFG\genefaceplusplus_ui\GeneFace\data\raw\videos" />
+      <recent name="E:\2025fallTFG\genefaceplusplus_ui\GeneFace\data\raw\val_wavs" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="E:\2025fallTFG\genefaceplusplus_ui\io\input\audio" />
+      <recent name="E:\2025fallTFG\genefaceplusplus_ui\io\input" />
+      <recent name="E:\2025fallTFG\genefaceplusplus_ui\RVC\models_zh" />
+      <recent name="E:\2025fallTFG\genefaceplusplus_ui\RVC" />
+    </key>
+  </component>
+  <component name="RunManager">
+    <configuration name="genefaceplusplus_ui" type="PythonConfigurationType" factoryName="Python">
+      <module name="genefaceplusplus_ui" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/app.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-1632447f56bf-JavaScript-PY-243.26053.29" />
+        <option value="bundled-python-sdk-b1dbf8ef85a6-4df51de95216-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-243.26053.29" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="7dbe18fc-c324-41f1-b4ea-85e995be5810" name="Changes" comment="" />
+      <created>1764165472754</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1764165472754</updated>
+      <workItem from="1764165474234" duration="731000" />
+      <workItem from="1764515026936" duration="4763000" />
+      <workItem from="1764552913517" duration="6833000" />
+      <workItem from="1764574560645" duration="14848000" />
+      <workItem from="1764596854124" duration="9658000" />
+      <workItem from="1764638979877" duration="4727000" />
+      <workItem from="1764667256912" duration="3387000" />
+      <workItem from="1764670880789" duration="8421000" />
+      <workItem from="1764682995543" duration="11754000" />
+      <workItem from="1764730304090" duration="9000" />
+      <workItem from="1764748469587" duration="4000" />
+      <workItem from="1764772868836" duration="258000" />
+      <workItem from="1764824889644" duration="8000" />
+      <workItem from="1764937735900" duration="18123000" />
+      <workItem from="1765001823467" duration="7873000" />
+      <workItem from="1765018398480" duration="2685000" />
+      <workItem from="1765025842753" duration="901000" />
+      <workItem from="1765077438789" duration="303000" />
+      <workItem from="1765109712859" duration="429000" />
+      <workItem from="1765289511151" duration="2247000" />
+      <workItem from="1765369033885" duration="491000" />
+      <workItem from="1765372830416" duration="3000" />
+      <workItem from="1765374940778" duration="1004000" />
+      <workItem from="1765378085606" duration="2289000" />
+      <workItem from="1765448105985" duration="3000" />
+      <workItem from="1765762849325" duration="749000" />
+      <workItem from="1765787640659" duration="6706000" />
+      <workItem from="1765976718873" duration="7954000" />
+      <workItem from="1766063859152" duration="1094000" />
+      <workItem from="1766150313570" duration="1135000" />
+      <workItem from="1766368750441" duration="3855000" />
+      <workItem from="1766389051262" duration="2298000" />
+      <workItem from="1766464240236" duration="235000" />
+      <workItem from="1766464964602" duration="581000" />
+      <workItem from="1766482425031" duration="720000" />
+      <workItem from="1766506603753" duration="377000" />
+      <workItem from="1766534207131" duration="1041000" />
+      <workItem from="1766535255678" duration="12852000" />
+      <workItem from="1766549685029" duration="81000" />
+      <workItem from="1766552271338" duration="2339000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>

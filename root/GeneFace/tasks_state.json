@@ -1,0 +1,62 @@
+{
+  "33facc27": {
+    "task_id": "33facc27",
+    "type": "preprocess",
+    "video_id": "test_15s",
+    "gpu_id": "0",
+    "status": "completed",
+    "current_step": "预处理完成",
+    "created_at": 1766538774.694686,
+    "updated_at": 1766539027.0530074,
+    "message": "数据预处理完成，可以开始训练头部模型",
+    "next_stage": "head"
+  },
+  "4c10f4ab": {
+    "task_id": "4c10f4ab",
+    "type": "head_training",
+    "video_id": "Shaheen",
+    "status": "completed",
+    "current_step": "头部训练完成",
+    "created_at": 1766539332.0820532,
+    "updated_at": 1766539835.2160695,
+    "head_ckpt": "checkpoints/motion2video_nerf/Shaheen_head",
+    "message": "可以开始训练身体模型",
+    "next_stage": "torso"
+  },
+  "d2b3a33d": {
+    "task_id": "d2b3a33d",
+    "type": "preprocess",
+    "video_id": "test_15s",
+    "gpu_id": "0",
+    "status": "completed",
+    "current_step": "预处理完成",
+    "created_at": 1766544513.0188744,
+    "updated_at": 1766544775.9024513,
+    "message": "数据预处理完成，可以开始训练头部模型",
+    "next_stage": "head"
+  },
+  "d02defc5": {
+    "task_id": "d02defc5",
+    "type": "preprocess",
+    "video_id": "test_15s",
+    "gpu_id": "0",
+    "status": "completed",
+    "current_step": "预处理完成",
+    "created_at": 1766552534.4502127,
+    "updated_at": 1766552817.9929168,
+    "message": "数据预处理完成，可以开始训练头部模型",
+    "next_stage": "head"
+  },
+  "b38bf743": {
+    "task_id": "b38bf743",
+    "type": "head_training",
+    "video_id": "Shaheen",
+    "status": "completed",
+    "current_step": "头部训练完成",
+    "created_at": 1766553655.6710563,
+    "updated_at": 1766553916.1039062,
+    "head_ckpt": "checkpoints/motion2video_nerf/Shaheen_head",
+    "message": "可以开始训练身体模型",
+    "next_stage": "torso"
+  }
+}
