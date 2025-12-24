@@ -11,8 +11,24 @@
 <body class="subpage-bg">
 
     <button onclick="window.location.href='/'" class="back-btn">← 返回</button>
-    <button class="vg-help-button" id="vg_openHelpBtn">参数说明</button>
+    <button class="vg-help-button" id="vg_openHelpBtn">使用教程</button>
+    <div class="vg-modal-backdrop" id="vg_helpModal" role="dialog" aria-modal="true" aria-labelledby="vg_helpTitle" tabindex="-1" hidden>
+        <div class="vg-modal-content" role="document">
+            <div class="vg-modal-header">
+                <h2 class="vg-modal-title" id="vg_helpTitle">使用教程</h2>
+                <button class="vg-modal-close" id="vg_closeHelpBtn" aria-label="关闭">✕</button>
+            </div>
 
+            <pre id="vg_helpBody" class="vg-modal-body" tabindex="0" data-src="{{ url_for('static', filename='text/model_training.txt') }}"></pre>
+
+            <div class="vg-modal-actions" aria-hidden="false">
+                <button class="vg-btn vg-btn-primary" id="vg_playTutorialBtn" type="button"
+                        data-video="{{ url_for('static', filename='videos/model_training.mp4') }}">
+                    播放教程视频
+                </button>
+            </div>
+        </div>
+    </div>
     <div class="page-container">
         <h2>模型训练界面</h2>
         <div class="video-page-container">
@@ -92,11 +108,32 @@
                         </div>
 
                         <div class="form-group" id="upload_video_group" style="display: none;">
-                            <label>上传视频</label>
-                            <input type="file" id="video_file" accept="video/mp4">
-                            <input type="text" id="new_video_id" placeholder="Video ID" style="margin-top: 5px;">
-                            <button type="button" onclick="uploadVideo()" style="margin-top: 5px;">上传</button>
-                            <span id="upload_status"></span>
+                            <label>上传视频 (MP4)</label>
+                            
+                            <!-- 1. 美化的文件选择器 -->
+                            <div class="file-input-container">
+                                <!-- 隐藏原生 input -->
+                                <input type="file" id="video_file" accept="video/mp4" class="hidden-input" onchange="updateFileName(this)">
+                                
+                                <!-- 自定义外观按钮 -->
+                                <label for="video_file" class="custom-file-btn">
+                                    📂 点击选择视频
+                                </label>
+                                
+                                <!-- 显示文件名 -->
+                                <span id="file_name_display" class="file-name-text">未选择文件</span>
+                            </div>
+
+                            <!-- 2. Video ID 输入框 -->
+                            <input type="text" id="new_video_id" class="styled-input" placeholder="请输入 Video ID (例如: may_test)">
+
+                            <!-- 3. 上传确认按钮 -->
+                            <button type="button" onclick="uploadVideo()" class="upload-action-btn">
+                                ⬆ 确认上传
+                            </button>
+                            
+                            <!-- 状态显示 -->
+                            <span id="upload_status" class="upload-status"></span>
                         </div>
 
                         <div class="form-group">

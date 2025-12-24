@@ -18,7 +18,7 @@
     </button>
 
     <button class="vg-help-button" id="vg_openHelpBtn" aria-haspopup="dialog" aria-controls="vg_helpModal">
-        <i class="fas fa-terminal"></i> 参数说明
+        <i class="fas fa-terminal"></i> 使用教程
     </button>
 
     <div class="page-container">
@@ -165,13 +165,13 @@
     <div class="vg-modal-backdrop" id="vg_helpModal" role="dialog" aria-modal="true" aria-labelledby="vg_helpTitle" tabindex="-1" hidden>
         <div class="vg-modal-content" role="document">
             <div class="vg-modal-header">
-                <h2 class="vg-modal-title" id="vg_helpTitle">系统参数说明</h2>
+                <h2 class="vg-modal-title" id="vg_helpTitle">使用教程</h2>
                 <button class="vg-modal-close" id="vg_closeHelpBtn" aria-label="关闭">✕</button>
             </div>
             <pre id="vg_helpBody" class="vg-modal-body" tabindex="0" data-src="{{ url_for('static', filename='text/chat_system.txt') }}"></pre>
             <div class="vg-modal-actions">
                 <button class="vg-btn vg-btn-primary" id="vg_playTutorialBtn" type="button"
-                        data-video="{{ url_for('static', filename='videos/tutorial.mp4') }}">
+                        data-video="{{ url_for('static', filename='videos/chat_system.mp4') }}">
                     <i class="fas fa-play-circle"></i> 播放教程视频
                 </button>
             </div>

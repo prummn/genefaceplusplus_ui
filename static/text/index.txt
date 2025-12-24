@@ -1,12 +1,19 @@
-1. 环境准备
-   - 安装 Python 3.8+ 和依赖：pip install -r requirements.txt
-
-2. 启动服务
-   - 在项目根目录运行：python app.py
-
-3. 页面操作
-   - 点击“训练模型”上传数据开始训练
-   - 点击“视频生成”导入素材生成视频
-   - 点击“人机对话”进入聊天模块
-
-4. 更多细节请参照 README.md 中的完整说明和视频教程。
+0. 资源下载
+- 网盘链接: https://pan.baidu.com/s/1tVEGLEczBMNMlN7V7iygOQ?pwd=kf5z
+- 提取码: kf5z
+1. 环境准备与资源部署
+基础软件：安装 Python 3.9+，并确保 Docker 已安装且配置好 NVIDIA Container Toolkit。
+依赖安装：在主项目中创建 Conda 环境并安装 Flask 核心组件：
+--- conda create -n voice_chat python=3.9 && conda activate voice_chat
+--- pip install flask pydub requests python-dotenv zhipuai werkzeug
+模型入位（关键）：
+- 将 models_zh 放入 RVC/。
+- 将 checkpoints、deep_3drecon 放入 GeneFace/。
+- 将 binary 放入 GeneFace/data/。
+- 将 hubert-large-ls960-ft 放入音频处理工具指定路径。
+- 配置文件：在根目录创建 .env，填入 ZHIPUAI_API_KEY 或 GEMINI_API_KEY。
+2. 启动核心引擎
+- 导入镜像：执行 docker load -i 导入 rvc-app-latest.tar 和 genefacepp.tar。 
+- 拉起后台容器：运行 .\start_geneface.bat。此脚本会启动一个名为 geneface 的常驻容器。
+- 启动前端服务：在根目录运行 python app.py， 访问http://127.0.0.1:5000 。
+3. 更多细节请参照 README.md 中的完整说明和相关模块的视频教程。

@@ -379,3 +379,14 @@ let pollInterval = null;
 		document.getElementById('stopBtn').addEventListener('click', stopTraining);
         toggleModelOptions();
     });
+    // 在 <script> 标签内的任意位置添加
+    function updateFileName(input) {
+        const fileNameDisplay = document.getElementById('file_name_display');
+        if (input.files && input.files.length > 0) {
+            fileNameDisplay.textContent = input.files[0].name;
+            fileNameDisplay.style.color = '#fff'; // 选中后高亮
+        } else {
+            fileNameDisplay.textContent = '未选择文件';
+            fileNameDisplay.style.color = '#8899a6';
+        }
+    }

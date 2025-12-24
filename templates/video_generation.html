@@ -11,7 +11,7 @@
 <body class="subpage-bg">
 
     <button onclick="window.location.href='/'" aria-label="返回首页" title="返回首页" class="back-btn">← 返回</button>
-    <button class="vg-help-button" id="vg_openHelpBtn" aria-haspopup="dialog" aria-controls="vg_helpModal">参数说明</button>
+    <button class="vg-help-button" id="vg_openHelpBtn" aria-haspopup="dialog" aria-controls="vg_helpModal">使用教程</button>
 
     <div class="page-container">
         <h2>视频生成</h2>
@@ -176,6 +176,24 @@
     </div>
 
     <script src="{{ url_for('static', filename='js/video_generation.js') }}"></script>
+    <div class="vg-modal-backdrop" id="vg_helpModal" role="dialog" aria-modal="true" aria-labelledby="vg_helpTitle" tabindex="-1" hidden>
+        <div class="vg-modal-content" role="document">
+            <div class="vg-modal-header">
+                <h2 class="vg-modal-title" id="vg_helpTitle">使用教程</h2>
+                <button class="vg-modal-close" id="vg_closeHelpBtn" aria-label="关闭">✕</button>
+            </div>
+
+            <pre id="vg_helpBody" class="vg-modal-body" tabindex="0" data-src="{{ url_for('static', filename='text/video_generation.txt') }}"></pre>
+
+            <div class="vg-modal-actions" aria-hidden="false">
+                <button class="vg-btn vg-btn-primary" id="vg_playTutorialBtn" type="button"
+                        data-video="{{ url_for('static', filename='videos/video_generation.mp4') }}">
+                    播放教程视频
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='js/instruction.js') }}"></script>
 </body>
 </html>

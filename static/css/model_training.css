@@ -1,3 +1,92 @@
+ /* --- 文件选择器容器 --- */
+.file-input-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+/* 隐藏原生 input */
+.hidden-input {
+    display: none;
+}
+
+/* 自定义文件选择按钮 (虚线框风格) */
+.custom-file-btn {
+    display: inline-block;
+    padding: 6px 16px;
+    background: rgba(0, 229, 255, 0.1);
+    border: 1px dashed #00e5ff;
+    border-radius: 4px;
+    color: #00e5ff;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.3s;
+    white-space: nowrap;
+}
+
+.custom-file-btn:hover {
+    background: rgba(0, 229, 255, 0.2);
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+}
+
+/* 文件名显示文字 */
+.file-name-text {
+    font-size: 12px;
+    color: #8899a6;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 150px;
+}
+
+/* --- 输入框美化 --- */
+.styled-input {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid #33334d;
+    border-radius: 4px;
+    padding: 10px;
+    color: #fff;
+    margin-bottom: 12px;
+    outline: none;
+    box-sizing: border-box; /* 确保内边距不撑大宽度 */
+}
+.styled-input:focus {
+    border-color: #00e5ff;
+}
+
+/* --- 上传确认按钮 (实心渐变风格) --- */
+.upload-action-btn {
+    width: 100%;
+    padding: 10px;
+    background: linear-gradient(90deg, #00c6ff, #0072ff);
+    border: none;
+    border-radius: 4px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 14px;
+    letter-spacing: 1px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.upload-action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 114, 255, 0.4);
+}
+
+.upload-action-btn:active {
+    transform: translateY(0);
+}
+
+/* 上传状态文字 */
+.upload-status {
+    display: block;
+    margin-top: 8px;
+    font-size: 12px;
+    min-height: 18px;
+}
  .video-page-container {
             display: flex;
             gap: 30px;
