@@ -42,14 +42,66 @@ function toggleModelOptions() {
     }
 }
 
-// ... (checkGenefaceHealth, refreshModels, onVideoIdSelected, refreshAudios, toggleAudioSource, uploadAudio 保持不变) ...
+// ... (checkGenefaceHealth, refreshModels, onVideoIdSelected, refreshAudios, toggleAudioSource 保持不变) ...
 // 为了节省篇幅，此处省略重复的 JS 函数，请保留之前实现的这些函数逻辑
 function checkGenefaceHealth() { /* ... */ fetch('/geneface/health').then(r=>r.json()).then(d=>{document.getElementById('gf_service_status').innerHTML=d.status==='ok'?'✓ 正常':'✗ '+d.message}).catch(()=>{document.getElementById('gf_service_status').innerHTML='✗ 无法连接'}); }
 function refreshModels() { /* ... */ const s=document.getElementById('gf_video_id_select');s.innerHTML='<option>Loading...</option>';fetch('/geneface/models').then(r=>r.json()).then(d=>{genefaceModels={};s.innerHTML='<option value="">-- 请选择 --</option>';d.forEach(m=>{genefaceModels[m.video_id]=m;const o=document.createElement('option');o.value=m.video_id;o.textContent=m.video_id;s.appendChild(o)})}); }
 function onVideoIdSelected() { /* ... */ const v=document.getElementById('gf_video_id_select').value;const h=document.getElementById('gf_head_ckpt_select');const t=document.getElementById('gf_torso_ckpt_select');h.innerHTML='';t.innerHTML='';if(v&&genefaceModels[v]){const d=genefaceModels[v];(d.head_checkpoints||[]).forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p.split('/').pop();h.appendChild(o)});(d.torso_checkpoints||[]).forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p.split('/').pop();t.appendChild(o)});if(t.options.length>0)t.selectedIndex=0;if(h.options.length>0)h.selectedIndex=0} }
 function refreshAudios() { /* ... */ const s=document.getElementById('gf_audio_select');fetch('/geneface/audios').then(r=>r.json()).then(d=>{s.innerHTML='<option value="">-- 请选择 --</option>';d.forEach(a=>{const o=document.createElement('option');o.value=a.path;o.textContent=a.name;s.appendChild(o)})}) }
 function toggleAudioSource() { /* ... */ const s=document.getElementById('audio_source').value;document.getElementById('existing_audio_group').style.display=s==='existing'?'block':'none';document.getElementById('upload_audio_group').style.display=s==='upload'?'block':'none' }
-function uploadAudio() { /* ... */ /* 保留之前的上传逻辑 */ }
+
+function uploadAudio() {
+    const fileInput = document.getElementById('audio_file');
+    const nameInput = document.getElementById('audio_name');
+    const statusDiv = document.getElementById('audio_upload_status');
+
+    if (!fileInput.files || fileInput.files.length === 0) {
+        alert('请先选择文件');
+        return;
+    }
+
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append('audio', file);
+    if (nameInput.value) {
+        formData.append('audio_name', nameInput.value);
+    }
+
+    statusDiv.textContent = '正在上传...';
+    statusDiv.className = 'upload-status uploading';
+
+    fetch('/geneface/upload_audio', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            statusDiv.textContent = '上传成功!';
+            statusDiv.className = 'upload-status success';
+
+            // 刷新音频列表
+            refreshAudios();
+
+            // 延迟切换回选择列表，让用户看到成功提示
+            setTimeout(() => {
+                document.getElementById('audio_source').value = 'existing';
+                toggleAudioSource();
+                statusDiv.textContent = ''; // 清除状态
+                statusDiv.className = 'upload-status';
+            }, 1500);
+
+        } else {
+            statusDiv.textContent = '上传失败: ' + data.message;
+            statusDiv.className = 'upload-status error';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        statusDiv.textContent = '上传出错';
+        statusDiv.className = 'upload-status error';
+    });
+}
 
 
 // ==================== 表单提交 ====================
