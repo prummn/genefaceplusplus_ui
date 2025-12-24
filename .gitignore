@@ -27,19 +27,17 @@ io/output
 CosyVoice/*
 !CosyVoice/run.py
 
+# ignore everything under data
+GeneFace/data/**
+
+# but allow directories
+!GeneFace/data/**/
+
+# keep placeholder files
+!GeneFace/data/**/.gitkeep
+
 GeneFace/checkpoints/
-!GeneFace/checkpoints/.gitkeep
 
-GeneFace/data/binary/
-!GeneFace/data/binary/.gitkeep
-
-GeneFace/data/processed/videos/
-!GeneFace/data/processed/videos/.gitkeep
-
-GeneFace/data/raw/videos/
-GeneFace/data/raw/val_wavs/
-GeneFace/data/raw/val_wavs/.gitkeep
-!GeneFace/data/raw/videos/.gitkeep
 
 static/videos/
 
