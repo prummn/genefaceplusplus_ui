@@ -44,3 +44,4 @@ GeneFace/data/raw/val_wavs/.gitkeep
 static/videos/
 
 
+GeneFace/data_gen/utils/process_audio/hubert-large-ls960-ft/

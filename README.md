@@ -441,4 +441,3 @@ pip install flask pydub requests python-dotenv zhipuai werkzeug
 * **说明**: 鉴于 CosyVoice 目前对计算资源要求较高且在部分环境下推理速度不如预期，本项目目前的生产环境默认使用 **RVC** 进行极其稳定的实时克隆。CosyVoice 作为一个实验性功能保留，供后续研究使用。
 
 ---
-
