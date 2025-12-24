@@ -412,7 +412,7 @@ conda create -n voice_chat python=3.9
 conda activate voice_chat
 
 # 安装核心依赖
-pip install flask pydub requests python-dotenv zhipuai werkzeug
+pip install flask pydub requests python-dotenv zhipuai werkzeug sniffio
 ```
 
 ### 3. 配置与启动
