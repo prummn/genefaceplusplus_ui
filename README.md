@@ -10,6 +10,65 @@
 
 
 ---
+## 📥 资源下载与环境配置 (重要)
+
+为了简化部署流程，我们提供了预构建的 Docker 镜像和必要的模型文件。请务必在开始前下载并按以下步骤配置。
+
+### 1. 资源下载
+* **网盘链接**: [百度网盘下载](https://pan.baidu.com/s/1tVEGLEczBMNMlN7V7iygOQ?pwd=kf5z)
+* **提取码**: `kf5z`
+
+该资源包包含以下重要文件：
+* **Docker 镜像**: `rvc-app-latest.tar`, `genefacepp.tar`, `evaluate-tool.tar`
+* **预训练模型**: `models_zh`, `checkpoints` 等
+* **配置文件**: `.env` (包含 API Key 配置模板)
+
+### 2. 模型文件部署
+请将下载的文件夹解压，并严格按照以下路径放入项目目录中（如果文件夹不存在请手动创建）：
+
+| 下载文件夹名 | 存放目标路径 (相对于项目根目录) | 说明 |
+| :--- | :--- | :--- |
+| **models_zh** | `RVC/` | RVC 语音克隆预训练模型 |
+| **binary** | `GeneFace/data/` | GeneFace 基础数据 (需新建 data 文件夹) |
+| **checkpoints** | `GeneFace/` | GeneFace 预训练权重 |
+| **deep_3drecon** | `GeneFace/` | 3D 人脸重建模型 |
+| **hubert-large-ls960-ft** | `GeneFace/data_gen/utils/process_audio/` | 音频特征提取模型 |
+| **.env** | 项目根目录 (`genefaceplusplus_ui/`) | 环境变量配置文件 |
+
+**目录结构示例：**
+```text
+genefaceplusplus_ui/
+├── .env                 <-- 放入此处 (从网盘下载)
+├── RVC/
+│   └── models_zh/       <-- 放入此处
+├── GeneFace/
+│   ├── checkpoints/     <-- 放入此处
+│   ├── deep_3drecon/    <-- 放入此处
+│   ├── data/
+│   │   └── binary/      <-- 放入此处
+│   └── data_gen/
+│       └── utils/
+│           └── process_audio/
+│               └── hubert-large-ls960-ft/ <-- 放入此处
+```
+
+### 3. 导入 Docker 镜像
+下载资源包中的镜像文件，打开终端（Windows PowerShell 或 CMD），进入文件所在目录执行：
+
+```bash
+# 1. 导入语音克隆镜像
+docker load -i rvc-app-latest.tar
+
+# 2. 导入数字人训练/推理镜像
+docker load -i genefacepp.tar
+
+# 3. 导入评估工具镜像 (可选)
+docker load -i evaluate-tool.tar
+```
+
+导入成功后，可以通过 `docker images` 命令查看已存在的镜像列表。
+
+---
 
 ## 🚀 核心功能模块
 
@@ -54,27 +113,32 @@
 
 ```mermaid
 graph TD
-    User[用户 (Web前端)] -->|1. 录音/上传参考音频| Server[Flask 主服务 (app.py)]
-    Server -->|2. 音频转码 & 存储| IO[IO 文件系统 (io/)]
+    User["用户 (Web前端)"] -->|1. 录音/上传参考音频| Server["Flask 主服务 (app.py)"]
+    Server -->|2. 音频转码 & 存储| IO["IO 文件系统 (io/)"]
     
     subgraph "Backend Core (backend/)"
-        IO -->|3. 读取用户录音| Pipeline[llm_asr_pipeline.py]
-        Pipeline -->|4. 调用 ASR API| Text[生成用户文本]
-        Text -->|5. 发送历史对话| LLM[大语言模型 (GLM/Gemini)]
-        LLM -->|6. 生成回复文本| Response[AI 回复]
+        IO -->|3. 读取用户录音| Pipeline["llm_asr_pipeline.py"]
+        Pipeline -->|4. 调用 ASR API| Text["生成用户文本"]
+        Text -->|5. 发送历史对话| LLM["大语言模型 (GLM/Gemini)"]
+        LLM -->|6. 生成回复文本| Response["AI 回复"]
         
-        Response -->|7. 文本处理| ChatEngine[chat_engine.py]
+        Response -->|7. 文本处理| ChatEngine["chat_engine.py"]
     end
     
     subgraph "Voice Cloning Engine (RVC Docker)"
-        ChatEngine -->|8. 切分长文本| TextChunks[文本片段]
-        TextChunks -->|9. 循环调用 Docker| Docker_Run[启动 RVC 容器]
-        Docker_Run -->|10. 生成片段音频| AudioChunks[音频片段]
-        AudioChunks -->|11. 拼接| Final_Audio[最终音频 (io/output)]
+        ChatEngine -->|8. 切分长文本| TextChunks["文本片段"]
+        TextChunks -->|9. 循环调用 Docker| Docker_Run["启动 RVC 容器"]
+        Docker_Run -->|10. 生成片段音频| AudioChunks["音频片段"]
+        AudioChunks -->|11. 拼接| Final_Audio["最终音频 (io/output)"]
+    end
+
+    subgraph "Digital Human Engine (GeneFace++ Docker)"
+        Final_Audio -->|12. 输入音频驱动| GeneFace_Container["启动/调用 GeneFace 容器"]
+        GeneFace_Container -->|13. 推理渲染| Final_Video["说话人脸视频"]
     end
     
-    Final_Audio -->|12. 返回路径| Server
-    Server -->|13. 播放/驱动视频| User
+    Final_Video -->|14. 返回视频路径| Server
+    Server -->|15. 播放视频| User
 ```
 
 ---
@@ -378,6 +442,3 @@ pip install flask pydub requests python-dotenv zhipuai werkzeug
 
 ---
 
-## 📝 团队分工说明
-* **人机对话/语音克隆**: 负责 ASR、LLM 接入、RVC Docker 化封装、长文本切分逻辑及整体 Web 交互。
-* **模型训练/视频生成**: 负责 GeneFace++ 的模型训练与视频渲染逻辑 (详见 backend 对应模块)。

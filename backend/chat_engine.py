@@ -103,50 +103,18 @@ def chat_response(data):
     llm_model = data.get('api_choice', 'glm-4.5-flash')
     model_name = data.get('model_name', 'SyncTalk')
 
-    # 修复：处理 voice_choice 可能包含或不包含扩展名的情况
-    if os.path.splitext(voice_choice)[1]:
-        ref_audio_path_host = os.path.join(IO_INPUT_AUDIO, voice_choice)
-    else:
-        ref_audio_path_host = os.path.join(IO_INPUT_AUDIO, f"{voice_choice}.wav")
-
-    # 对应的文本文件 (假设同名 .txt)
-    ref_text_filename = os.path.splitext(os.path.basename(ref_audio_path_host))[0] + ".txt"
-    ref_text_path_host = os.path.join(IO_INPUT_TEXT, ref_text_filename)
+    ref_audio_path_host = os.path.join(IO_INPUT_AUDIO, f"{voice_choice}.wav")
+    ref_text_path_host = os.path.join(IO_INPUT_TEXT, f"{voice_choice}.txt")
 
     if not os.path.exists(ref_audio_path_host):
         print(f"[Warn] 参考音频不存在: {ref_audio_path_host}")
     
-    # -----------------------------------------------
-    # 【新增】检测并生成参考音频文本
-    # -----------------------------------------------
-    if not os.path.exists(ref_text_path_host):
-        print(f"[Info] 检测到参考音频文本缺失: {ref_text_path_host}")
-        if os.path.exists(ref_audio_path_host):
-            print(f"[Info] 正在调用 ASR 为参考音频生成字幕...")
-            try:
-                cmd_asr = [
-                    PYTHON_EXECUTABLE,
-                    PIPELINE_SCRIPT,
-                    "--mode", "asr",
-                    "--input", ref_audio_path_host,
-                    "--output_file", ref_text_path_host
-                ]
-                # 运行 ASR 模式
-                subprocess.run(cmd_asr, check=True, cwd=BACKEND_DIR, capture_output=True, text=True, encoding='gbk', errors='replace')
-                print(f"[Info] 参考音频字幕生成成功。")
-            except subprocess.CalledProcessError as e:
-                print(f"[Warn] 参考音频 ASR 失败: {e.stderr}")
-        else:
-            print(f"[Warn] 无法生成字幕，因为参考音频文件也不存在。")
-
-    # 读取参考文本
     ref_text_content = ""
     if os.path.exists(ref_text_path_host):
         with open(ref_text_path_host, 'r', encoding='utf-8') as f:
             ref_text_content = f.read().strip()
     
     print(f"[Info] 语音模型: {voice_model_type} | 参考音频: {os.path.basename(ref_audio_path_host)}")
-
 
     # -----------------------------------------------
     # 步骤 1: 运行 Pipeline (ASR + LLM)
@@ -188,7 +156,8 @@ def chat_response(data):
         if result.stdout:
             print("============= ASR/LLM Pipeline Log =============")
             print(result.stdout)
-            
+            print("================================================")
+
         # 提取用户提问
         user_q = "未知"
         if result.stdout:
@@ -198,67 +167,140 @@ def chat_response(data):
                     if len(parts) > 1:
                         user_q = parts[1].strip()
         
-        # -----------------------------------------------
-        # 步骤 2: 检查生成的音频
-        # -----------------------------------------------
-        if not os.path.exists(FINAL_AUDIO_PATH_SERVER):
-            raise FileNotFoundError(f"TTS 生成失败，未找到音频文件: {FINAL_AUDIO_PATH_SERVER}")
+        print(f"[chat_engine] 解析到的提问: {user_q}")
 
-        print(f"[chat_engine] 最终音频已保存: {FINAL_AUDIO_PATH_SERVER}")
+        # 读取 LLM 回复
+        if not os.path.exists(LATEST_RESPONSE_FILE):
+            raise FileNotFoundError("LLM 回复文件未生成，Pipeline 可能运行失败")
 
-        # -----------------------------------------------
-        # 步骤 3: (新增) 视频生成逻辑
-        # -----------------------------------------------
-        # 检查是否启用了 GeneFace++ 并且提供了必要的 Checkpoints
-        gf_torso_ckpt = data.get('gf_torso_ckpt')
-        gf_head_ckpt = data.get('gf_head_ckpt')
+        with open(LATEST_RESPONSE_FILE, 'r', encoding='utf-8') as f:
+            ai_text = f.read().strip()
+        print(f"[chat_engine] AI 回复: {ai_text[:30]}...")
 
-        if model_name == "GeneFace++" and gf_torso_ckpt:
-            print("[chat_engine] 检测到 GeneFace++ 配置，开始生成视频...")
+    except subprocess.CalledProcessError as e:
+        print(f"Pipeline Error (Exit Code {e.returncode}):")
+        print(f"STDOUT: {e.stdout}")
+        print(f"STDERR: {e.stderr}")
+        raise e
 
-            # 3.1 复制音频到 GeneFace 数据目录
-            # GeneFace 需要音频在 data/raw/val_wavs/ 下
-            gf_audio_dir = os.path.join(BASE_DIR, "GeneFace", "data", "raw", "val_wavs")
-            os.makedirs(gf_audio_dir, exist_ok=True)
+    # -----------------------------------------------
+    # 步骤 2: 语音克隆
+    # -----------------------------------------------
+    chunks = simple_splitter(ai_text)
+    chunk_audio_files = []
 
-            # 使用时间戳命名防止冲突
-            timestamp = int(time.time())
-            gf_audio_name = f"chat_{timestamp}.wav"
-            gf_audio_path = os.path.join(gf_audio_dir, gf_audio_name)
+    print(f"[TTS] 开始语音合成，共 {len(chunks)} 块...")
 
-            shutil.copy2(FINAL_AUDIO_PATH_SERVER, gf_audio_path)
-            print(f"[chat_engine] 音频已复制到: {gf_audio_path}")
+    for i, chunk_text in enumerate(chunks):
+        if not chunk_text.strip(): continue
 
-            # 3.2 构造视频生成参数
-            # 注意：GeneFace API 期望的 audio_path 是相对于 GeneFace 根目录或 data 目录的
-            # 这里我们传递相对路径 data/raw/val_wavs/xxx.wav
-            video_gen_data = {
-                "model_name": "GeneFace++",
-                "gf_head_ckpt": gf_head_ckpt,
-                "gf_torso_ckpt": gf_torso_ckpt,
-                "gf_audio_path": f"data/raw/val_wavs/{gf_audio_name}",
-                "gpu_choice": data.get('gpu_choice', 'GPU0'),
-                # 不需要 target_text 和 voice_clone，因为我们直接提供音频
-            }
+        chunk_text_filename = f"chunk_{i}.txt"
+        chunk_wav_filename = f"chunk_{i}.wav"
 
-            # 3.3 调用视频生成
-            # generate_video 返回的是 web 路径 (static/videos/...)
-            video_web_path = generate_video(video_gen_data)
+        host_chunk_text_path = os.path.join(IO_TEMP, chunk_text_filename)
+        host_chunk_wav_path = os.path.join(IO_TEMP, chunk_wav_filename)
 
-            if video_web_path:
-                print(f"[chat_engine] 视频生成成功: {video_web_path}")
-                return video_web_path
+        with open(host_chunk_text_path, 'w', encoding='utf-8') as f:
+            f.write(chunk_text)
+
+        docker_ref_audio = f"/io/input/audio/{os.path.basename(ref_audio_path_host)}"
+        docker_target_text = f"/io/temp/{chunk_text_filename}"
+        docker_out_wav = f"/io/temp/{chunk_wav_filename}"
+
+        if voice_model_type == "RVC":
+            cmd = [
+                "docker", "run", "--rm", "--gpus", "all",
+                "-v", f"{IO_DIR}:/io",
+                "-v", f"{RVC_MODELS_DIR}:/app/models_zh",
+                "rvc-app",
+                "--ref", docker_ref_audio,
+                "--text-file", docker_target_text,
+                "--out", docker_out_wav
+            ]
+
+        elif voice_model_type == "CosyVoice":
+            cmd = [
+                "docker", "run", "--rm", "--gpus", "all",
+                "-v", f"{IO_DIR}:/io",
+                "-v", f"{COSYVOICE_MODELS_DIR}:/app/pretrained_models",
+                "cosyvoice-app",
+                "--ref-audio", docker_ref_audio,
+                "--ref-text", ref_text_content,
+                "--target-text-file", docker_target_text,
+                "--out", docker_out_wav
+            ]
+        else:
+            raise ValueError(f"未知的语音模型: {voice_model_type}")
+
+        t0 = time.time()
+        try:
+            subprocess.run(cmd, check=True, cwd=BASE_DIR, capture_output=True, text=True, encoding='utf-8')
+            if os.path.exists(host_chunk_wav_path):
+                chunk_audio_files.append(host_chunk_wav_path)
+                print(f"  [Chunk {i+1}] ✅ ({time.time()-t0:.2f}s)")
+            else:
+                print(f"  [Chunk {i+1}] ❌ 生成失败")
+        except subprocess.CalledProcessError as e:
+            print(f"  [Chunk {i+1}] Docker Error: {e.stderr}")
+
+    # -----------------------------------------------
+    # 步骤 3: 拼接音频
+    # -----------------------------------------------
+    if not chunk_audio_files:
+        raise Exception("语音合成失败: 没有生成任何音频块")
+
+    final_audio = AudioSegment.empty()
+    for f in chunk_audio_files:
+        try:
+            final_audio += AudioSegment.from_wav(f)
+        except Exception:
+            pass
+
+    final_audio.export(FINAL_AUDIO_PATH_SERVER, format="wav")
+    print(f"[chat_engine] 最终音频已保存: {FINAL_AUDIO_PATH_SERVER}")
+
+    for f in os.listdir(IO_TEMP):
+        try:
+            os.remove(os.path.join(IO_TEMP, f))
+        except: pass
+
+    # -----------------------------------------------
+    # 步骤 4: 视频生成 (GeneFace++)
+    # -----------------------------------------------
+    if model_name == "GeneFace++":
+        print("[chat_engine] 检测到 GeneFace++ 模型，开始生成视频...")
+
+        # 1. 复制音频到 GeneFace 目录
+        gf_audio_dir = os.path.join(BASE_DIR, "GeneFace", "data", "raw", "val_wavs")
+        os.makedirs(gf_audio_dir, exist_ok=True)
+
+        # 使用时间戳生成唯一文件名，避免冲突
+        gf_filename = f"chat_{int(time.time())}.wav"
+        gf_target_path = os.path.join(gf_audio_dir, gf_filename)
+
+        try:
+            shutil.copy(FINAL_AUDIO_PATH_SERVER, gf_target_path)
+            print(f"[chat_engine] 音频已复制到 GeneFace: {gf_target_path}")
+
+            # 2. 构造 GeneFace++ 需要的参数
+            # 注意：data 中已经包含了 gf_head_ckpt 和 gf_torso_ckpt
+            # 我们只需要补充 gf_audio_path (相对路径)
+            gf_data = data.copy()
+            gf_data['gf_audio_path'] = f"data/raw/val_wavs/{gf_filename}"
+
+            # 3. 调用 video_generator 生成视频
+            # generate_video 会返回相对于 static 的路径，例如 "static/videos/geneface_output.mp4"
+            video_path = generate_video(gf_data)
+
+            if video_path and os.path.exists(os.path.join(BASE_DIR, video_path)):
+                print(f"[chat_engine] 视频生成成功: {video_path}")
+                return video_path
             else:
                 print("[chat_engine] 视频生成失败，回退到仅音频")
 
-        # 如果没有生成视频，返回音频路径 (Web 路径)
-        return FINAL_AUDIO_PATH_WEB
+        except Exception as e:
+            print(f"[chat_engine] GeneFace++ 处理出错: {e}")
+            import traceback
+            traceback.print_exc()
 
-    except subprocess.CalledProcessError as e:
-        print(f"[Error] Pipeline 运行失败: {e}")
-        if e.stderr:
-            print(f"[Error Log] {e.stderr}")
-        raise e
-    except Exception as e:
-        print(f"[Error] 未知错误: {e}")
-        raise e
+    return FINAL_AUDIO_PATH_WEB

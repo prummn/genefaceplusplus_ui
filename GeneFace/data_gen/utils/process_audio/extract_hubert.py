@@ -22,8 +22,10 @@ def get_hubert_from_16k_speech(speech, device="cuda:0"):
     if hubert_model is None:
         print("Loading the HuBERT Model...")
         if os.path.exists(local_path):
+            print("Loading HuBERT model from local path...")
             hubert_model = HubertModel.from_pretrained(local_path)
         else:
+            print("Loading HuBERT model from Huggingface...")
             hubert_model = HubertModel.from_pretrained("facebook/hubert-large-ls960-ft")
     hubert_model = hubert_model.to(device)
     if wav2vec2_processor is None:
